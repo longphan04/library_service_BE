@@ -2,7 +2,7 @@ import User from "./user.model.js";
 import Profile from "./profile.model.js";
 import Role from "./role.model.js";
 import UserRole from "./userRole.model.js";
-import PasswordResetToken from "./passwordResetToken.model.js";
+import AuthToken from "./authToken.model.js";
 import RefreshToken from "./refreshToken.model.js";
 import Category from "./category.model.js";
 import Author from "./author.model.js";
@@ -36,8 +36,8 @@ export function applyAllAssociations() {
     as: "users",
   });
 
-  User.hasMany(PasswordResetToken, { foreignKey: "user_id", as: "passwordResetTokens" });
-  PasswordResetToken.belongsTo(User, { foreignKey: "user_id", as: "user" });
+  User.hasMany(AuthToken, { foreignKey: "user_id", as: "authTokens" });
+  AuthToken.belongsTo(User, { foreignKey: "user_id", as: "user" });
 
   User.hasMany(RefreshToken, { foreignKey: "user_id", as: "refreshTokens" });
   RefreshToken.belongsTo(User, { foreignKey: "user_id", as: "user" });

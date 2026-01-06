@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <title>Xác nhận email thành công</title>
+
+  <style>
+    :root{
+      --bg1:#0b0f17;
+      --bg2:#070a10;
+      --card:#0f172a;
+      --card2:#0b1224;
+      --border:rgba(255,255,255,.10);
+      --text:#e8eefc;
+      --muted:rgba(232,238,252,.68);
+      --ok:#22c55e;
+      --shadow: 0 20px 60px rgba(0,0,0,.55);
+      --radius:18px;
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      min-height:100vh;
+      display:grid;
+      place-items:center;
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      background:
+        radial-gradient(900px 500px at 20% 15%, rgba(34,197,94,.18), transparent 55%),
+        radial-gradient(800px 520px at 80% 18%, rgba(99,102,241,.16), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      padding:28px 16px;
+    }
+
+    .wrap{
+      width:min(720px, 96vw);
+      display:grid;
+      gap:16px;
+      animation: pop .35s ease-out both;
+    }
+
+    @keyframes pop{
+      from{transform:translateY(10px); opacity:.0}
+      to{transform:translateY(0); opacity:1}
+    }
+
+    .card{
+      background: linear-gradient(180deg, rgba(15,23,42,.92), rgba(11,18,36,.92));
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      position:relative;
+    }
+
+    .topbar{
+      height:6px;
+      background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,197,94,.35), rgba(99,102,241,.30));
+    }
+
+    .content{
+      padding:22px 22px 18px;
+      display:grid;
+      gap:14px;
+    }
+
+    .row{
+      display:flex;
+      gap:14px;
+      align-items:flex-start;
+    }
+
+    .icon{
+      width:54px;height:54px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      background: rgba(34,197,94,.14);
+      border:1px solid rgba(34,197,94,.28);
+      flex:0 0 auto;
+    }
+
+    h1{
+      margin:0;
+      font-size:22px;
+      letter-spacing:.2px;
+    }
+
+    p{
+      margin:0;
+      color:var(--muted);
+      line-height:1.6;
+      font-size:14.5px;
+    }
+
+    .actions{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      margin-top:4px;
+    }
+
+    .btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      padding:10px 14px;
+      border-radius:14px;
+      text-decoration:none;
+      font-weight:650;
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.06);
+      color:var(--text);
+      transition: transform .12s ease, background .12s ease, border-color .12s ease;
+      user-select:none;
+    }
+    .btn:hover{ transform: translateY(-1px); background: rgba(255,255,255,.09); border-color: rgba(255,255,255,.16); }
+    .btn:active{ transform: translateY(0px); }
+
+    .btn.primary{
+      background: rgba(34,197,94,.18);
+      border-color: rgba(34,197,94,.38);
+    }
+    .btn.primary:hover{
+      background: rgba(34,197,94,.24);
+      border-color: rgba(34,197,94,.52);
+    }
+
+    .hint{
+      padding:0 22px 20px;
+      color:rgba(232,238,252,.55);
+      font-size:12px;
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 10px;
+      border-radius:999px;
+      background: rgba(34,197,94,.12);
+      border:1px solid rgba(34,197,94,.26);
+      color: rgba(232,238,252,.85);
+      font-size:12px;
+      font-weight:650;
+    }
+
+    .spark{
+      position:absolute;
+      inset:-40% -20% auto auto;
+      width:240px;height:240px;
+      background: radial-gradient(circle at 30% 30%, rgba(34,197,94,.18), transparent 62%);
+      filter: blur(2px);
+      pointer-events:none;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="topbar"></div>
+      <div class="spark"></div>
+
+      <div class="content">
+        <div class="row">
+          <div class="icon" aria-hidden="true">
+            <!-- check icon -->
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+              <path d="M20 6L9 17l-5-5" stroke="rgba(34,197,94,.95)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+
+          <div>
+            <div class="badge">
+              <span style="width:8px;height:8px;border-radius:999px;background:rgba(34,197,94,.95);display:inline-block"></span>
+              Xác nhận thành công
+            </div>
+
+            <h1 style="margin-top:10px">Email của bạn đã được kích hoạt</h1>
+            <p style="margin-top:8px">
+              Bạn có thể đăng nhập và sử dụng hệ thống ngay bây giờ.
+              Nếu bạn không thực hiện đăng ký, hãy đổi mật khẩu email của bạn để đảm bảo an toàn.
+            </p>
+
+            <div class="actions" style="margin-top:14px">
+              <!-- Nếu có frontend riêng: sửa thành http://localhost:5173/login -->
+              <a class="btn primary" href="http://localhost:5173/auth/login">
+                Đi tới đăng nhập
+                <span aria-hidden="true">→</span>
+              </a>
+              <!-- Nếu có frontend riêng: sửa thành http://localhost:5173 -->
+              <a class="btn" href="http://localhost:5173/home">
+                Về trang chủ
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hint">
+        <span>✅ Bạn có thể đóng tab này.</span>
+        <span>Library System</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
