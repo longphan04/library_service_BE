@@ -24,7 +24,7 @@ CREATE TABLE users (
     user_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(150) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    status ENUM('ACTIVE','BANNED') NOT NULL DEFAULT 'ACTIVE',
+    status ENUM('PENDING','ACTIVE','BANNED') NOT NULL DEFAULT 'PENDING',
     last_login_at DATETIME DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -77,21 +77,23 @@ CREATE TABLE user_roles (
 ) ENGINE=InnoDB;
 
 -- =========================================================
--- Bảng Password_Reset_Tokens
--- Dùng để: quên mật khẩu qua email. Lưu token dạng hash + hạn dùng + trạng thái đã dùng.
+-- Bảng Auth_Tokens
+-- Dùng để: xác nhận email, quên mật khẩu qua email. Lưu token dạng hash + hạn dùng + trạng thái đã dùng.
 -- =========================================================
-CREATE TABLE password_reset_tokens (
-    prt_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+CREATE TABLE auth_tokens (
+    token_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL,
+    purpose ENUM('VERIFY_EMAIL','RESET_PASSWORD') NOT NULL DEFAULT 'RESET_PASSWORD',
     token_hash VARCHAR(255) NOT NULL,
     expires_at DATETIME NOT NULL,
     used_at DATETIME DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-    INDEX idx_prt_user (user_id),
-    INDEX idx_prt_expires (expires_at),
+    UNIQUE KEY uq_auth_token_hash (token_hash),
+    INDEX idx_auth_user_purpose (user_id, purpose),
+    INDEX idx_auth_expires (expires_at),
 
-    CONSTRAINT fk_prt_user
+    CONSTRAINT fk_auth_user
         FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 

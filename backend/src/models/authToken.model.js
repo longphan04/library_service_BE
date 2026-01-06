@@ -1,11 +1,11 @@
 import { Model, DataTypes } from "sequelize";
 import sequelize from "../config/dbConnection.js";
 
-export class PasswordResetToken extends Model {}
+export class AuthToken extends Model {}
 
-PasswordResetToken.init(
+AuthToken.init(
   {
-    prt_id: {
+    token_id: {
       type: DataTypes.BIGINT,
       autoIncrement: true,
       primaryKey: true,
@@ -14,9 +14,15 @@ PasswordResetToken.init(
       type: DataTypes.BIGINT,
       allowNull: false,
     },
+    purpose: {
+      type: DataTypes.ENUM('VERIFY_EMAIL','RESET_PASSWORD'),
+      allowNull: false,
+      defaultValue: 'RESET_PASSWORD',
+    },
     token_hash: {
       type: DataTypes.STRING(255),
       allowNull: false,
+      unique: true,
     },
     expires_at: {
       type: DataTypes.DATE,
@@ -33,10 +39,10 @@ PasswordResetToken.init(
   },
   {
     sequelize,
-    modelName: "PasswordResetToken",
-    tableName: "password_reset_tokens",
+    modelName: "AuthToken",
+    tableName: "auth_tokens",
     timestamps: false,
   }
 );
 
-export default PasswordResetToken;
+export default AuthToken;
