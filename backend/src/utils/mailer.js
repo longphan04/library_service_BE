@@ -1,3 +1,4 @@
+// file này chứa các hàm gửi email dùng chung
 import nodemailer from "nodemailer";
 
 const {
@@ -51,3 +52,35 @@ export async function sendVerifyEmail({ to, token, fullName }) {
     `,
   });
 }
+
+
+// gửi email đặt lại mật khẩu
+export async function sendResetPasswordEmail({ to, token, fullName }) {
+  const transporter = createTransporter();
+  const from = MAIL_FROM || SMTP_USER;
+
+  const base = API_BASE_URL || "http://localhost:3000";
+  const resetLink = `${base}/auth/reset-password?token=${encodeURIComponent(token)}`;
+
+  await transporter.sendMail({
+    from,
+    to,
+    subject: "Đặt lại mật khẩu",
+    html: `
+      <div style="font-family:Arial,sans-serif;line-height:1.6">
+        <p>Chào ${fullName || ""},</p>
+        <p>Bạn (hoặc ai đó) đã yêu cầu đặt lại mật khẩu.</p>
+
+        <p>
+          <a href="${resetLink}"
+            style="display:inline-block;padding:10px 14px;background:#111;color:#fff;text-decoration:none;border-radius:6px">
+            Đặt lại mật khẩu
+          </a>
+        </p>
+
+        <p style="color:#666;font-size:12px">Link sẽ hết hạn sau ${process.env.RESET_TTL_MIN || 10} phút.</p>
+      </div>
+    `,
+  });
+}
+
