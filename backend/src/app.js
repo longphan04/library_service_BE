@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import authRoutes from "./routes/auth.route.js";
 import { errorHandler } from "./middlewares/error.middleware.js";
+import profileRoutes from "./routes/profile.route.js";
 import cookieParser from "cookie-parser";
 
 const app = express();
@@ -21,6 +22,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 app.use("/auth", authRoutes);
+app.use("/profile", profileRoutes);
 
 // Lỗi trung gian
 app.use(errorHandler);
