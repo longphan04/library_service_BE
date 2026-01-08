@@ -31,7 +31,7 @@ export async function verifyEmail(req, res, next) {
     return res.sendFile(failPath);
   }
 }
-// Nhận lại email xác thực từ người dùng
+// Nhận lại email xác thực
 export async function resendVerifyEmail(req, res, next) {
   try {
     const result = await authService.resendVerifyEmail(req.body);

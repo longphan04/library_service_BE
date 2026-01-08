@@ -3,19 +3,19 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="color-scheme" content="dark" />
+  <meta name="color-scheme" content="light" />
   <title>Xác nhận email thất bại</title>
 
   <style>
     :root{
-      --bg1:#0b0f17;
-      --bg2:#070a10;
-      --card:#0f172a;
-      --border:rgba(255,255,255,.10);
-      --text:#e8eefc;
-      --muted:rgba(232,238,252,.68);
-      --bad:#ef4444;
-      --shadow: 0 20px 60px rgba(0,0,0,.55);
+      --bg1:#F5EBE0;
+      --bg2:#F5EBE0;
+      --card:#FFFFFF;
+      --border:rgba(122,74,46,.10);
+      --text:#7A4A2E;
+      --muted:rgba(122,74,46,.68);
+      --bad:#7A4A2E;
+      --shadow: 0 20px 60px rgba(122,74,46,.10);
       --radius:18px;
     }
 
@@ -27,10 +27,7 @@
       place-items:center;
       color:var(--text);
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji","Segoe UI Emoji";
-      background:
-        radial-gradient(900px 520px at 18% 18%, rgba(239,68,68,.18), transparent 55%),
-        radial-gradient(820px 520px at 80% 18%, rgba(99,102,241,.14), transparent 55%),
-        linear-gradient(180deg, var(--bg1), var(--bg2));
+      background: var(--bg1);
       padding:28px 16px;
     }
 
@@ -47,7 +44,7 @@
     }
 
     .card{
-      background: linear-gradient(180deg, rgba(15,23,42,.92), rgba(11,18,36,.92));
+      background: var(--card);
       border:1px solid var(--border);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
@@ -57,7 +54,7 @@
 
     .topbar{
       height:6px;
-      background: linear-gradient(90deg, rgba(239,68,68,.95), rgba(239,68,68,.35), rgba(99,102,241,.30));
+      background: #FFFFFF;
     }
 
     .content{
@@ -77,8 +74,8 @@
       border-radius:14px;
       display:grid;
       place-items:center;
-      background: rgba(239,68,68,.12);
-      border:1px solid rgba(239,68,68,.28);
+      background: rgba(122,74,46,.10);
+      border:1px solid rgba(122,74,46,.18);
       flex:0 0 auto;
     }
 
@@ -98,7 +95,7 @@
     ul{
       margin:10px 0 0;
       padding-left:18px;
-      color:rgba(232,238,252,.66);
+      color:rgba(122,74,46,.66);
       line-height:1.6;
       font-size:13.8px;
     }
@@ -120,26 +117,26 @@
       text-decoration:none;
       font-weight:650;
       border:1px solid var(--border);
-      background: rgba(255,255,255,.06);
+      background: rgba(122,74,46,.06);
       color:var(--text);
       transition: transform .12s ease, background .12s ease, border-color .12s ease;
       user-select:none;
     }
-    .btn:hover{ transform: translateY(-1px); background: rgba(255,255,255,.09); border-color: rgba(255,255,255,.16); }
+    .btn:hover{ transform: translateY(-1px); background: rgba(122,74,46,.09); border-color: rgba(122,74,46,.16); }
     .btn:active{ transform: translateY(0px); }
 
     .btn.danger{
-      background: rgba(239,68,68,.14);
-      border-color: rgba(239,68,68,.38);
+      background: rgba(122,74,46,.14);
+      border-color: rgba(122,74,46,.38);
     }
     .btn.danger:hover{
-      background: rgba(239,68,68,.20);
-      border-color: rgba(239,68,68,.52);
+      background: rgba(122,74,46,.20);
+      border-color: rgba(122,74,46,.52);
     }
 
     .hint{
       padding:0 22px 20px;
-      color:rgba(232,238,252,.55);
+      color:rgba(122,74,46,.55);
       font-size:12px;
       display:flex;
       justify-content:space-between;
@@ -153,9 +150,9 @@
       gap:8px;
       padding:6px 10px;
       border-radius:999px;
-      background: rgba(239,68,68,.12);
-      border:1px solid rgba(239,68,68,.26);
-      color: rgba(232,238,252,.85);
+      background: #FFFFFF;
+      border:1px solid rgba(122,74,46,.26);
+      color: var(--text);
       font-size:12px;
       font-weight:650;
     }
@@ -164,7 +161,7 @@
       position:absolute;
       inset:-40% -20% auto auto;
       width:240px;height:240px;
-      background: radial-gradient(circle at 30% 30%, rgba(239,68,68,.16), transparent 62%);
+      background: radial-gradient(circle at 30% 30%, rgba(122,74,46,.10), transparent 62%);
       filter: blur(2px);
       pointer-events:none;
     }
@@ -182,13 +179,13 @@
           <div class="icon" aria-hidden="true">
             <!-- x icon -->
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-              <path d="M18 6L6 18M6 6l12 12" stroke="rgba(239,68,68,.95)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M18 6L6 18M6 6l12 12" stroke="#7A4A2E" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
 
           <div>
             <div class="badge">
-              <span style="width:8px;height:8px;border-radius:999px;background:rgba(239,68,68,.95);display:inline-block"></span>
+              <span style="width:8px;height:8px;border-radius:999px;background:#7A4A2E;display:inline-block"></span>
               Xác nhận thất bại
             </div>
 
