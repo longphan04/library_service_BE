@@ -167,16 +167,7 @@ CREATE TABLE shelves (
     shelf_id INT AUTO_INCREMENT PRIMARY KEY,
     code VARCHAR(40) NOT NULL UNIQUE,
     name VARCHAR(120) DEFAULT NULL,
-
-    category_id INT NOT NULL,              --  kệ thuộc 1 danh mục
-
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
-    INDEX idx_shelves_category (category_id),
-
-    CONSTRAINT fk_shelves_category
-        FOREIGN KEY (category_id) REFERENCES categories(category_id)
-        ON DELETE RESTRICT
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
 
@@ -572,3 +563,30 @@ INSERT INTO roles(name, description) VALUES
 ('ADMIN', 'Quản trị viên'),
 ('STAFF', 'Nhân viên thư viện'),
 ('MEMBER', 'Thành viên');
+-- =========================================================
+-- Seed dữ liệu kệ sách mẫu
+-- =========================================================
+INSERT INTO shelves (code, name) VALUES
+('1A-01', 'Dãy 1A - Kệ 01'),
+('1A-02', 'Dãy 1A - Kệ 02'),
+('1A-03', 'Dãy 1A - Kệ 03'),
+('1A-04', 'Dãy 1A - Kệ 04'),
+('1A-05', 'Dãy 1A - Kệ 05'),
+
+('1B-01', 'Dãy 1B - Kệ 01'),
+('1B-02', 'Dãy 1B - Kệ 02'),
+('1B-03', 'Dãy 1B - Kệ 03'),
+('1B-04', 'Dãy 1B - Kệ 04'),
+('1B-05', 'Dãy 1B - Kệ 05'),
+
+('1C-01', 'Dãy 1C - Kệ 01'),
+('1C-02', 'Dãy 1C - Kệ 02'),
+('1C-03', 'Dãy 1C - Kệ 03'),
+('1C-04', 'Dãy 1C - Kệ 04'),
+('1C-05', 'Dãy 1C - Kệ 05'),
+
+('1D-01', 'Dãy 1D - Kệ 01'),
+('1D-02', 'Dãy 1D - Kệ 02'),
+('1D-03', 'Dãy 1D - Kệ 03'),
+('1D-04', 'Dãy 1D - Kệ 04'),
+('1D-05', 'Dãy 1D - Kệ 05');

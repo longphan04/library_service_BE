@@ -1,14 +1,14 @@
 import express from "express";
-// import {getProfileByUserId, updateProfile} from "../controllers/profile.controller.js"
-import * as profileController from "../controllers/profile.controller.js";
+import { requireAuthActive } from "../middlewares/auth.middleware.js";
+import { requireRole } from "../middlewares/rbac.middleware.js";
+import { getMyProfile, updateMyProfile, getProfileByUserId } from "../controllers/profile.controller.js";
 
 const router = express.Router();
 
-/* ========= PROFILE ========= */
+router.get("/me", ...requireAuthActive, getMyProfile);
+router.put("/me", ...requireAuthActive, updateMyProfile);
 
-// lấy profile theo id
-router.get("/:userId", profileController.getMyProfile);
-
-router.put("/:userId", profileController.updateProfile);
+// staff/admin xem profile người dùng theo userId
+router.get("/:userId", ...requireAuthActive, requireRole("STAFF"), getProfileByUserId);
 
 export default router;

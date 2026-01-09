@@ -19,10 +19,6 @@ Shelf.init(
         type: DataTypes.STRING(120), 
         allowNull: true 
     },
-    category_id: { 
-        type: DataTypes.INTEGER, 
-        allowNull: false 
-    },
     created_at: { 
         type: DataTypes.DATE, 
         allowNull: true 
