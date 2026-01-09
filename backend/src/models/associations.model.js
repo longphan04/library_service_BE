@@ -43,9 +43,6 @@ export function applyAllAssociations() {
   RefreshToken.belongsTo(User, { foreignKey: "user_id", as: "user" });
 
   // ===== CATALOG =====
-  Category.hasMany(Shelf, { foreignKey: "category_id", as: "shelves" });
-  Shelf.belongsTo(Category, { foreignKey: "category_id", as: "category" });
-
   Shelf.hasMany(Book, { foreignKey: "shelf_id", as: "books" });
   Book.belongsTo(Shelf, { foreignKey: "shelf_id", as: "shelf" });
 
