@@ -1,13 +1,16 @@
 import { Router } from "express";
-import { register, verifyEmail, resendVerifyEmail } from "../controllers/authRegister.controller.js";
+import { register, registerStaff, verifyEmail, resendVerifyEmail } from "../controllers/authRegister.controller.js";
 import { login, refresh, logout } from "../controllers/authLog.controller.js";
 import { forgotPassword, resetPassword, resetPasswordPage, changePassword } from "../controllers/authPass.controller.js";
 import { requireAuthActive } from "../middlewares/auth.middleware.js";
+import { requireRole } from "../middlewares/rbac.middleware.js";
 
 const router = Router();
 
 // Đăng ký người dùng mới
 router.post("/register", register);
+// ADMIN tự đăng kí tài khoản cho STAFF
+router.post("/register-staff", ...requireAuthActive, requireRole("ADMIN"), registerStaff);
 // Xác thực email người dùng mới
 router.get("/verify-email", verifyEmail);
 // Nhận lại email xác thực
