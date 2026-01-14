@@ -90,37 +90,36 @@ export async function register({ email, password, full_name }) {
     if (existed.status === "ACTIVE") throw appError("Email đã tồn tại", 409);
     if (existed.status === "BANNED") throw appError("Tài khoản đang bị khóa", 403);
 
-    // PENDING => resend verify
+    // PENDING => tạo token mới trong transaction, COMMIT xong trả response ngay,
+    // gửi email verify bất đồng bộ (tránh chậm request).
     const { rawToken, profileName } = await sequelize.transaction(async (t) => {
-      // (tuỳ chọn) nếu bạn muốn cập nhật lại password/full_name khi user PENDING đăng ký lại:
       const password_hash = await bcrypt.hash(String(password), SALT_ROUNDS);
       await existed.update({ password_hash }, { transaction: t });
 
-      await Profile.upsert(
-        { user_id: existed.user_id, full_name },
-        { transaction: t }
-      );
+      await Profile.upsert({ user_id: existed.user_id, full_name }, { transaction: t });
 
       const token = await issueVerifyEmailToken(existed.user_id, t);
-
       return { rawToken: token, profileName: full_name };
     });
 
-    await sendVerifyEmail({
+    // fire-and-forget
+    sendVerifyEmail({
       to: normalizedEmail,
       token: rawToken,
       fullName: profileName,
+    }).catch((err) => {
+      console.error("Send verify email failed (PENDING resend):", err);
     });
 
     return {
-      message: `Tài khoản đang chờ xác nhận. Đã gửi lại link (hết hạn ${VERIFY_TTL_MIN} phút).`,
+      message: `Tài khoản đang chờ xác nhận. Đã tạo lại link xác nhận (hết hạn ${VERIFY_TTL_MIN} phút).`,
     };
   }
 
   // Tạo mới
   const password_hash = await bcrypt.hash(String(password), SALT_ROUNDS);
 
-  // tạo data trước, gửi mail sau khi commit
+  // Tạo data trong transaction; COMMIT xong trả response ngay; email gửi async
   const { userId, rawToken } = await sequelize.transaction(async (t) => {
     const user = await User.create(
       {
@@ -145,21 +144,71 @@ export async function register({ email, password, full_name }) {
       transaction: t,
     });
     if (memberRole) {
+      await UserRole.create({ user_id: user.user_id, role_id: memberRole.role_id }, { transaction: t });
+    }
+
+    const token = await issueVerifyEmailToken(user.user_id, t);
+    return { userId: user.user_id, rawToken: token };
+  });
+
+  // fire-and-forget
+  sendVerifyEmail({ to: normalizedEmail, token: rawToken, fullName: full_name }).catch((err) => {
+    console.error("Send verify email failed (REGISTER):", err);
+  });
+
+  return {
+    message: `Đăng ký thành công ở trạng thái chờ xác nhận. Vui lòng kiểm tra email (hết hạn ${VERIFY_TTL_MIN} phút).`,
+    user_id: userId,
+  };
+}
+// ------------------------------------------------------------------------
+// ADMIN tự đăng kí tài khoản cho STAFF
+export async function registerStaff({ email, password, full_name }) {
+  if (!email || !password || !full_name) {
+    throw appError("Thiếu email/password/full_name", 400);
+  }
+  const normalizedEmail = String(email).toLowerCase().trim();
+
+  // check trước cho rõ ràng
+  const existed = await User.findOne({ where: { email: normalizedEmail } });
+  if (existed) {
+    throw appError("Email đã tồn tại", 409);
+  }
+  const password_hash = await bcrypt.hash(String(password), SALT_ROUNDS);
+  // Tạo mới
+  const userId = await sequelize.transaction(async (t) => {
+    const user = await User.create(
+      {
+        email: normalizedEmail,
+        password_hash,
+        status: "ACTIVE",
+      },
+      { transaction: t }
+    );
+    await Profile.create(
+      {
+        user_id: user.user_id,
+        full_name,
+      },
+      { transaction: t }
+    );
+    // gán role STAFF
+    const staffRole = await Role.findOne({
+      where: { name: "STAFF" },
+      transaction: t,
+    });
+    if (staffRole) {
       await UserRole.create(
-        { user_id: user.user_id, role_id: memberRole.role_id },
+        { user_id: user.user_id, role_id: staffRole.role_id },
         { transaction: t }
       );
     }
 
-    const token = await issueVerifyEmailToken(user.user_id, t);
-
-    return { userId: user.user_id, rawToken: token };
+    return user.user_id;
   });
 
-  await sendVerifyEmail({ to: normalizedEmail, token: rawToken, fullName: full_name });
-
   return {
-    message: `Đăng ký thành công ở trạng thái chờ xác nhận. Vui lòng kiểm tra email (hết hạn ${VERIFY_TTL_MIN} phút).`,
+    message: "Đăng ký thành công.",
     user_id: userId,
   };
 }

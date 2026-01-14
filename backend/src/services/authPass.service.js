@@ -68,7 +68,8 @@ export async function forgotPasswordService({ email }) {
 
   // BANNED => không cho reset (vẫn trả ok để tránh lộ)
   if (user.status === "BANNED") return safeResponse;
-
+ // PENDING => không cho reset (vẫn trả ok để tránh lộ)
+  if (user.status === "PENDING") return safeResponse;
   const rawToken = await sequelize.transaction(async (t) => {
     return await issueResetPasswordToken(user.user_id, t);
   });
@@ -119,7 +120,7 @@ export async function resetPasswordService({ token, newPassword }) {
 
     if (!user) throw appError("User không tồn tại", 404);
     if (user.status === "BANNED") throw appError("Tài khoản đã bị khóa", 403);
-
+    if (user.status === "PENDING") throw appError("Tài khoản chưa được kích hoạt", 403);
     const password_hash = await bcrypt.hash(pwd, SALT_ROUNDS);
 
     await user.update({ password_hash }, { transaction: t });

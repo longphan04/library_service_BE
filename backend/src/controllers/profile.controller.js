@@ -6,7 +6,8 @@ export async function getMyProfile(req, res, next) {
     const userId = req.auth?.user_id;
     if (!userId) return res.status(401).json({ message: "Chưa đăng nhập" });
 
-    const result = await profileService.getProfileUserId(userId);
+    // Lấy profile kèm user + roles cho chính chủ
+    const result = await profileService.getProfileUserId(userId, { includeUser: true });
     return res.json(result);
   } catch (err) {
     next(err);
@@ -21,6 +22,7 @@ export async function updateMyProfile(req, res, next) {
     const result = await profileService.updateProfile({
       ...req.body,
       user_id: userId,
+      avatarFile: req.file,
     });
 
     return res.json(result);

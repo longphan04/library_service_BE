@@ -19,6 +19,15 @@ export async function register(req, res, next) {
     next(err);
   }
 }
+// ADMIN tự đăng kí tài khoản cho STAFF
+export async function registerStaff(req, res, next) {
+  try {
+    const result = await authService.registerStaff(req.body);
+    res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
 // Xác thực email người dùng mới
 export async function verifyEmail(req, res, next) {
   try {

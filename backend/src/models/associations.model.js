@@ -11,7 +11,6 @@ import Shelf from "./shelf.model.js";
 import Book from "./book.model.js";
 import BookCategory from "./bookCategory.model.js";
 import BookAuthor from "./bookAuthor.model.js";
-import BookImage from "./bookImage.model.js";
 import BookCopy from "./bookCopy.model.js";
 import BookHold from "./bookHold.model.js";
 import BorrowTicket from "./borrowTicket.model.js";
@@ -54,10 +53,6 @@ export function applyAllAssociations() {
   User.hasMany(Book, { foreignKey: "updated_by", as: "updatedBooks" });
   Book.belongsTo(User, { foreignKey: "created_by", as: "creator" });
   Book.belongsTo(User, { foreignKey: "updated_by", as: "updater" });
-
-  // book_images
-  Book.hasMany(BookImage, { foreignKey: "book_id", as: "images" });
-  BookImage.belongsTo(Book, { foreignKey: "book_id", as: "book" });
 
   // copies
   Book.hasMany(BookCopy, { foreignKey: "book_id", as: "copies" });
