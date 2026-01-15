@@ -2,6 +2,7 @@ import app from "./src/app.js";
 import "dotenv/config";
 import sequelize from "./src/config/dbConnection.js";
 import { applyAllAssociations } from "./src/models/associations.model.js";
+import { startCheckBookHoldCron } from "./src/cron/checkBookHold.js";
 
 const PORT = process.env.PORT || 3000;
 
@@ -10,7 +11,11 @@ async function main() {
     applyAllAssociations(); // <-- đặt ở đây (1 lần)
     await sequelize.authenticate();
     console.log("Connected database success");
-    app.listen(PORT, () => {
+    // Khởi động cron job kiểm tra book hold hết hạn
+    startCheckBookHoldCron();
+
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server is running on http://10.0.5.101:${PORT}`);
       console.log(`Server is running on http://localhost:${PORT}`);
     });
   } catch (error) {

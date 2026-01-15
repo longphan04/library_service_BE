@@ -1,12 +1,37 @@
 import Category from "../models/category.model.js";
 import { saveUploadedImage, deletePublicImage } from "../middlewares/image.middleware.js";
 import { appError } from "../utils/appError.js";
+import Book from "../models/book.model.js";
+import sequelize from "../config/dbConnection.js";
 
-// Lấy tất cả danh mục
+// Lấy tất cả danh mục, sắp xếp theo tên A-Z, tính số lượng book thuộc mỗi category
 export const getAllCategories = async () => {
-  const categories = await Category.findAll({ 
+  const categories = await Category.findAll({
+    attributes: [
+      "category_id",
+      "name",
+      "image",
+      [
+        sequelize.fn("COUNT", sequelize.col("books.book_id")),
+        "bookCount"
+      ]
+    ],
+    include: [
+      {
+        model: Book,
+        as: "books",
+        attributes: [],
+        through: { attributes: [] }, // bảng book_categories
+        required: false
+      }
+    ],
+    group: [
+      "Category.category_id",
+      "Category.name"
+    ],
     order: [["name", "ASC"]]
   });
+
   return categories;
 };
 

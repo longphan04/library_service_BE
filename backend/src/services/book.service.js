@@ -22,15 +22,34 @@ function parseIdList(value) {
     .filter((n) => Number.isFinite(n));
 }
 
-// include chi tiết khi lấy book by id
+// include chi tiết khi lấy book by id (tối ưu field)
 function includeBookDetail() {
   return [
-    { model: Publisher, as: "publisher" },
-    { model: Shelf, as: "shelf" },
-    { model: Category, as: "categories", through: { attributes: [] } },
-    { model: Author, as: "authors", through: { attributes: [] } },
-    { model: BookCopy, as: "copies" },
+    { model: Publisher, as: "publisher", attributes: ["publisher_id", "name"] },
+    { model: Shelf, as: "shelf", attributes: ["shelf_id", "code"] },
+    { model: Category, as: "categories", attributes: ["category_id", "name"], through: { attributes: [] } },
+    { model: Author, as: "authors", attributes: ["author_id", "name"], through: { attributes: [] } },
   ];
+}
+
+// include khi list books (tối ưu field)
+function includeBookList({ categoryId } = {}) {
+  const include = [
+    { model: Publisher, as: "publisher", attributes: ["publisher_id", "name"] },
+    { model: Category, as: "categories", attributes: ["category_id", "name"], through: { attributes: [] } },
+    { model: Author, as: "authors", attributes: ["author_id", "name"], through: { attributes: [] } },
+  ];
+
+  // filter theo category (nếu có)
+  if (categoryId) {
+    include[1] = {
+      ...include[1],
+      where: { category_id: categoryId },
+      required: true,
+    };
+  }
+
+  return include;
 }
 
 // Cập lại tổng số bản sao và số bản sao khả dụng của sách
@@ -44,13 +63,18 @@ async function recalcCopyCounters(bookId, t) {
 }
 
 // Lấy tất cả sách với filter, search, phân trang
+// Yêu cầu: mặc định chỉ lấy status ACTIVE và chỉ trả về các field cần thiết để tối ưu tốc độ
 export async function getAllBooksService({ q, status, categoryId, page = 1, limit = 18 } = {}) {
   const safeLimit = Math.min(Math.max(Number(limit) || 18, 1), 100);
   const safePage = Math.max(Number(page) || 1, 1);
   const offset = (safePage - 1) * safeLimit;
 
   const where = {};
+
+  // Mặc định chỉ lấy ACTIVE (trừ khi client truyền status khác)
   if (status) where.status = String(status).toUpperCase();
+  else where.status = "ACTIVE";
+
   if (q) {
     where[Op.or] = [
       { title: { [Op.like]: `%${q}%` } },
@@ -58,27 +82,14 @@ export async function getAllBooksService({ q, status, categoryId, page = 1, limi
     ];
   }
 
-  const include = [
-    { model: Publisher, as: "publisher" },
-    { model: Shelf, as: "shelf" },
-    { model: Category, as: "categories", through: { attributes: [] } },
-    { model: Author, as: "authors", through: { attributes: [] } },
-  ];
-
-  // filter theo category (nếu có)
-  if (categoryId) {
-    include[2] = {
-      ...include[2],
-      where: { category_id: categoryId },
-      required: true,
-    };
-  }
+  const include = includeBookList({ categoryId });
 
   const { count, rows } = await Book.findAndCountAll({
+    attributes: ["book_id", "cover_url", "title", "available_copies"],
     where,
     include,
     distinct: true, // tránh count sai khi join N-N
-    order: [["created_at", "DESC"]],
+    order: [["book_id", "DESC"]], // Thay thế created_at bằng book_id
     limit: safeLimit,
     offset,
   });
@@ -95,9 +106,21 @@ export async function getAllBooksService({ q, status, categoryId, page = 1, limi
   };
 }
 
-// Lấy sách theo ID
+// Lấy sách theo ID (trang chi tiết) - chỉ trả về các field cần thiết
 export async function getBookByIdService(bookId) {
-  const book = await Book.findByPk(bookId, { include: includeBookDetail() });
+  const book = await Book.findByPk(bookId, {
+    attributes: [
+      "book_id",
+      "title",
+      "description",
+      "publish_year",
+      "language",
+      "cover_url",
+      "total_copies",
+      "available_copies",
+    ],
+    include: includeBookDetail(),
+  });
   if (!book) return null;
   return book;
 }
