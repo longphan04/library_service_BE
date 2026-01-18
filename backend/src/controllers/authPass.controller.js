@@ -1,5 +1,5 @@
 import path from "path";
-import * as passwordService from "../services/authPass.service.js";
+import * as passwordService from "../services/auth-user/authPass.service.js";
 
 
 

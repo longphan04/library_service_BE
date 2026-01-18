@@ -78,15 +78,21 @@ CREATE TABLE user_roles (
 
 -- =========================================================
 -- Bảng Auth_Tokens
--- Dùng để: xác nhận email, quên mật khẩu qua email. Lưu token dạng hash + hạn dùng + trạng thái đã dùng.
+-- Dùng để: xác nhận email (WEB link / APP OTP), quên mật khẩu qua email.
+-- Lưu token dạng hash + hạn dùng + trạng thái đã dùng.
 -- =========================================================
 CREATE TABLE auth_tokens (
     token_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL,
-    purpose ENUM('VERIFY_EMAIL','RESET_PASSWORD') NOT NULL DEFAULT 'RESET_PASSWORD',
+    -- VERIFY_EMAIL: web click link
+    -- VERIFY_EMAIL_OTP: mobile app nhập OTP 6 số
+    -- RESET_PASSWORD: reset password
+    purpose ENUM('VERIFY_EMAIL','VERIFY_EMAIL_OTP','RESET_PASSWORD') NOT NULL DEFAULT 'RESET_PASSWORD',
     token_hash VARCHAR(255) NOT NULL,
     expires_at DATETIME NOT NULL,
     used_at DATETIME DEFAULT NULL,
+    -- Chỉ dùng cho OTP (VERIFY_EMAIL_OTP): đếm số lần nhập sai để giới hạn brute-force
+    otp_fail_count INT NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     UNIQUE KEY uq_auth_token_hash (token_hash),
@@ -197,6 +203,7 @@ CREATE TABLE books (
     -- Cache số lượng (tuỳ chọn)
     total_copies INT NOT NULL DEFAULT 0,
     available_copies INT NOT NULL DEFAULT 0,
+    total_borrow_count INT NOT NULL DEFAULT 0,
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -368,7 +375,7 @@ CREATE TABLE borrow_items (
     returned_at DATETIME DEFAULT NULL,      -- thời điểm trả
     returned_by BIGINT DEFAULT NULL,         -- ai nhận trả (sẽ là staff)
 
-    status ENUM('BORROWED','RETURNED','REMOVED') NOT NULL DEFAULT 'BORROWED',
+    status ENUM('BORROWED','RETURNED','REMOVED',"CANCELLED") NOT NULL DEFAULT 'BORROWED',
 
     UNIQUE (ticket_id, copy_id),
 
@@ -437,7 +444,8 @@ DROP TRIGGER IF EXISTS trg_copies_ai;
 DROP TRIGGER IF EXISTS trg_copies_au;
 DROP TRIGGER IF EXISTS trg_copies_ad;
 
-DROP TRIGGER IF EXISTS trg_bi_ai;
+-- NOTE: trg_bi_ai removed (handled in backend code instead)
+-- DROP TRIGGER IF EXISTS trg_bi_ai;
 DROP TRIGGER IF EXISTS trg_bi_au;
 
 DELIMITER $$
@@ -506,37 +514,38 @@ END$$
    - Update borrow_item BORROWED->DAMAGED  => copy -> REMOVED (vì copy table không có DAMAGED)
    ========================================================= */
 
-CREATE TRIGGER trg_bi_ai
-AFTER INSERT ON borrow_items
-FOR EACH ROW
-BEGIN
-  UPDATE book_copies
-  SET status = 'BORROWED'
-  WHERE copy_id = NEW.copy_id AND status = 'AVAILABLE';
+-- NOTE: trg_bi_ai removed (handled in backend code instead)
+-- CREATE TRIGGER trg_bi_ai
+-- AFTER INSERT ON borrow_items
+-- FOR EACH ROW
+-- BEGIN
+--   UPDATE book_copies
+--   SET status = 'BORROWED'
+--   WHERE copy_id = NEW.copy_id AND status = 'AVAILABLE';
+--
+--   IF ROW_COUNT() = 0 THEN
+--     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Copy is not AVAILABLE, cannot borrow.';
+--   END IF;
+-- END$$
 
-  IF ROW_COUNT() = 0 THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Copy is not AVAILABLE, cannot borrow.';
-  END IF;
-END$$
+-- CREATE TRIGGER trg_bi_au
+-- AFTER UPDATE ON borrow_items
+-- FOR EACH ROW
+-- BEGIN
+--   IF OLD.status = 'BORROWED' AND NEW.status = 'RETURNED' THEN
+--     UPDATE book_copies
+--     SET status = 'AVAILABLE'
+--     WHERE copy_id = NEW.copy_id;
+--   END IF;
 
-CREATE TRIGGER trg_bi_au
-AFTER UPDATE ON borrow_items
-FOR EACH ROW
-BEGIN
-  IF OLD.status = 'BORROWED' AND NEW.status = 'RETURNED' THEN
-    UPDATE book_copies
-    SET status = 'AVAILABLE'
-    WHERE copy_id = NEW.copy_id;
-  END IF;
+--   IF OLD.status = 'BORROWED' AND NEW.status = 'DAMAGED' THEN
+--     UPDATE book_copies
+--     SET status = 'REMOVED'
+--     WHERE copy_id = NEW.copy_id;
+--   END IF;
+-- END$$
 
-  IF OLD.status = 'BORROWED' AND NEW.status = 'DAMAGED' THEN
-    UPDATE book_copies
-    SET status = 'REMOVED'
-    WHERE copy_id = NEW.copy_id;
-  END IF;
-END$$
-
-DELIMITER ;
+-- DELIMITER ;
 
 
 -- =========================================================

@@ -1,5 +1,5 @@
-import Shelf from "../models/shelf.model.js";
-import { appError } from "../utils/appError.js";
+import Shelf from "../../models/shelf.model.js";
+import { appError } from "../../utils/appError.js";
 
 
 

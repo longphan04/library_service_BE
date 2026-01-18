@@ -1,18 +1,24 @@
-import * as bookService from "../services/book.service.js";
+import * as bookService from "../services/book/book.service.js";
 
 // GET /books
 export async function getAllBooks(req, res, next) {
   try {
+    const { q, status, categoryId, authorId, publisherId, sort, page, limit } = req.query;
+
     const result = await bookService.getAllBooksService({
-      q: req.query.q,
-      status: req.query.status,
-      categoryId: req.query.categoryId,
-      page: req.query.page,
-      limit: req.query.limit,
+      q,
+      status,
+      categoryId,
+      authorId,
+      publisherId,
+      sort,
+      page,
+      limit,
     });
-    return res.json(result);
-  } catch (e) {
-    next(e);
+
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
   }
 }
 
@@ -33,9 +39,10 @@ export async function createBook(req, res, next) {
     const authUserId = req.auth?.user_id;
 
     const created = await bookService.createBookService({
-      authUserId,
+      // để authUserId ở dưới cùng để tránh bị ghi đè bởi req.body
       coverFile: req.file,
       ...req.body,
+      authUserId,
     });
 
     return res.status(201).json(created);
@@ -79,13 +86,9 @@ export async function suggestBooks(req, res, next) {
     const keyword = req.query.q ?? req.query.keyword;
     const limit = req.query.limit;
 
-    const result = await bookService.suggestBooksService({
-      keyword,
-      limit,
-    });
-
-    return res.json(result);
-  } catch (e) {
-    next(e);
+    const result = await bookService.suggestBooksService({ keyword, limit });
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
   }
 }

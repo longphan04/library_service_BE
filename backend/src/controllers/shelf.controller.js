@@ -1,4 +1,4 @@
-import * as shelfService from "../services/shelf.service.js";
+import * as shelfService from "../services/master-data/shelf.service.js";
 
 // GET /shelves
 export async function getAllShelves(req, res, next) {

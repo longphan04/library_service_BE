@@ -2,19 +2,22 @@
 import User from "../models/user.model.js";
 import Role from "../models/role.model.js";
 
+function getRolesFromAuth(auth) {
+  const roles = auth?.roles;
+  return Array.isArray(roles) ? roles : null;
+}
 
-// Lấy danh sách role hiện tại của user
+// Lấy danh sách role hiện tại của user (fallback)
 async function getCurrentRoles(userId) {
   const user = await User.findByPk(userId, {
     attributes: ["user_id"],
-    include: [
-      { model: Role, as: "roles", attributes: ["name"], through: { attributes: [] } },
-    ],
+    include: [{ model: Role, as: "roles", attributes: ["name"], through: { attributes: [] } }],
   });
 
   if (!user) return null; // phân biệt "không tồn tại"
-  return (user.roles || []).map(r => r.name);
+  return (user.roles || []).map((r) => r.name);
 }
+
 // Middleware kiểm tra role
 export function requireRole(...allowRoles) {
   return async (req, res, next) => {
@@ -22,12 +25,18 @@ export function requireRole(...allowRoles) {
       const userId = req.auth?.user_id;
       if (!userId) return res.status(401).json({ message: "Chưa đăng nhập" });
 
-      const roles = await getCurrentRoles(userId);
-      if (roles === null) return res.status(401).json({ message: "Tài khoản không tồn tại" });
+      // Ưu tiên lấy roles từ JWT để tối ưu hiệu năng (O(1), không query DB)
+      let roles = getRolesFromAuth(req.auth);
+
+      // Fallback: nếu token không có roles (token cũ), query DB
+      if (roles === null) {
+        roles = await getCurrentRoles(userId);
+        if (roles === null) return res.status(401).json({ message: "Tài khoản không tồn tại" });
+      }
 
       if (roles.includes("ADMIN")) return next();
 
-      const ok = roles.some(r => allowRoles.includes(r));
+      const ok = roles.some((r) => allowRoles.includes(r));
       if (!ok) return res.status(403).json({ message: "Không đủ quyền" });
 
       return next();

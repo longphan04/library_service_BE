@@ -1,12 +1,12 @@
 import bcrypt from "bcrypt";
-import sequelize from "../config/dbConnection.js";
+import sequelize from "../../config/dbConnection.js";
 
-import User from "../models/user.model.js";
-import RefreshToken from "../models/refreshToken.model.js";
-import Role from "../models/role.model.js";
+import User from "../../models/user.model.js";
+import RefreshToken from "../../models/refreshToken.model.js";
+import Role from "../../models/role.model.js";
 
-import { sha256, randomToken } from "../utils/crypto.js";
-import { signAccessToken } from "../utils/jwt.js";
+import { sha256, randomToken } from "../../utils/crypto.js";
+import { signAccessToken } from "../../utils/jwt.js";
 
 // Hàm tạo lỗi ứng dụng với message + status
 function appError(message, status = 400) {
@@ -40,6 +40,7 @@ export async function loginService({ email, password, userAgent, ip }) {
   const accessToken = signAccessToken({
     user_id: user.user_id,
     email: user.email,
+    roles: (user.roles || []).map((r) => r.name),
   });
 
   // refresh token (raw + hash)
@@ -105,7 +106,11 @@ export async function refreshService({ rawRefreshToken, userAgent, ip }) {
       throw appError("Refresh token hết hạn, vui lòng đăng nhập lại", 401);
     }
 
-    const user = await User.findByPk(oldRow.user_id, { transaction: t, lock: t.LOCK.UPDATE });
+    const user = await User.findByPk(oldRow.user_id, {
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+      include: [{ model: Role, as: "roles", through: { attributes: [] } }],
+    });
     if (!user) throw appError("User không tồn tại", 404);
     if (user.status !== "ACTIVE") throw appError("Tài khoản không ACTIVE", 403);
 
@@ -127,7 +132,11 @@ export async function refreshService({ rawRefreshToken, userAgent, ip }) {
       { transaction: t }
     );
 
-    const accessToken = signAccessToken({ user_id: user.user_id, email: user.email });
+    const accessToken = signAccessToken({
+      user_id: user.user_id,
+      email: user.email,
+      roles: (user.roles || []).map((r) => r.name),
+    });
 
     return { accessToken, refreshToken: newRaw };
   });

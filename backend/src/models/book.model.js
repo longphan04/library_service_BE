@@ -70,6 +70,11 @@ Book.init(
         allowNull: false, 
         defaultValue: 0 
     },
+    total_borrow_count: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    },
   },
   {
     sequelize,

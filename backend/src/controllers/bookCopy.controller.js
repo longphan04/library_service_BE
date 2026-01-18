@@ -1,4 +1,4 @@
-import * as bookCopyService from "../services/bookCopy.service.js";
+import * as bookCopyService from "../services/book/bookCopy.service.js";
 
 // GET /book-copies/:bookId
 export async function getAllBookCopy(req, res, next) {

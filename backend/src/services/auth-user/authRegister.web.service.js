@@ -1,16 +1,16 @@
 // src/services/auth.service.js
 import bcrypt from "bcrypt";
 import crypto from "crypto";
-import sequelize from "../config/dbConnection.js";
+import sequelize from "../../config/dbConnection.js";
 
-import User from "../models/user.model.js";
-import Profile from "../models/profile.model.js";
-import Role from "../models/role.model.js";
-import UserRole from "../models/userRole.model.js";
-import AuthToken from "../models/authToken.model.js";
+import User from "../../models/user.model.js";
+import Profile from "../../models/profile.model.js";
+import Role from "../../models/role.model.js";
+import UserRole from "../../models/userRole.model.js";
+import AuthToken from "../../models/authToken.model.js";
 
 // chỉnh path theo nơi bạn đặt file mail
-import { sendVerifyEmail } from "../utils/mailer.js";
+import { sendVerifyEmail } from "../../utils/mailer.js";
 
 // ===== config =====
 const VERIFY_TTL_MIN = Number(process.env.VERIFY_TTL_MIN || 10); // token verify sống 10 phút
@@ -64,12 +64,12 @@ async function issueVerifyEmailToken(userId, t) {
 }
 
 /**
- * REGISTER:
+ * REGISTER (WEB - link verify):
  * - email unique
  * - tạo user status=PENDING
  * - tạo profile
  * - gán role MEMBER
- * - tạo token verify + gửi mail
+ * - tạo token verify + gửi mail link
  *
  * Nếu email đã tồn tại:
  * - ACTIVE/BANNED => báo trùng
@@ -161,6 +161,7 @@ export async function register({ email, password, full_name }) {
     user_id: userId,
   };
 }
+
 // ------------------------------------------------------------------------
 // ADMIN tự đăng kí tài khoản cho STAFF
 export async function registerStaff({ email, password, full_name }) {
@@ -175,6 +176,7 @@ export async function registerStaff({ email, password, full_name }) {
     throw appError("Email đã tồn tại", 409);
   }
   const password_hash = await bcrypt.hash(String(password), SALT_ROUNDS);
+
   // Tạo mới
   const userId = await sequelize.transaction(async (t) => {
     const user = await User.create(
@@ -185,6 +187,7 @@ export async function registerStaff({ email, password, full_name }) {
       },
       { transaction: t }
     );
+
     await Profile.create(
       {
         user_id: user.user_id,
@@ -192,16 +195,14 @@ export async function registerStaff({ email, password, full_name }) {
       },
       { transaction: t }
     );
+
     // gán role STAFF
     const staffRole = await Role.findOne({
       where: { name: "STAFF" },
       transaction: t,
     });
     if (staffRole) {
-      await UserRole.create(
-        { user_id: user.user_id, role_id: staffRole.role_id },
-        { transaction: t }
-      );
+      await UserRole.create({ user_id: user.user_id, role_id: staffRole.role_id }, { transaction: t });
     }
 
     return user.user_id;
@@ -214,7 +215,7 @@ export async function registerStaff({ email, password, full_name }) {
 }
 
 /**
- * VERIFY EMAIL (click link):
+ * VERIFY EMAIL (WEB - click link):
  * - tìm token_hash purpose VERIFY_EMAIL chưa dùng
  * - check expires
  * - set user ACTIVE
@@ -256,10 +257,10 @@ export async function verifyEmail(rawToken) {
 }
 
 /**
- * RESEND VERIFY:
+ * RESEND VERIFY (WEB):
  * - user phải tồn tại
  * - nếu ACTIVE => báo đã xác nhận
- * - nếu PENDING => tạo token mới + gửi mail
+ * - nếu PENDING => tạo token mới + gửi mail link
  */
 export async function resendVerifyEmail({ email }) {
   if (!email) throw appError("Thiếu email", 400);

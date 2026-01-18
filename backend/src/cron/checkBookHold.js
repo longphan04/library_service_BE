@@ -1,4 +1,4 @@
-import { sweepExpiredBookHoldsService } from "../services/bookHold.service.js";
+import { sweepExpiredBookHoldsService } from "../services/book/bookHold.service.js";
 
 let _started = false;
 

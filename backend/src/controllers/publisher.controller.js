@@ -1,9 +1,26 @@
-import * as publisherService from "../services/publisher.service.js";
+import * as publisherService from "../services/master-data/publisher.service.js";
 
 // GET /publishers
 export async function getAllPublishers(req, res, next) {
   try {
     const result = await publisherService.getAllPublishersService();
+    return res.json(result);
+  } catch (e) {
+    next(e);
+  }
+}
+
+// GET /publishers/suggest?q=...
+export async function suggestPublishers(req, res, next) {
+  try {
+    const keyword = req.query.q ?? req.query.keyword;
+    const limit = req.query.limit;
+
+    const result = await publisherService.suggestPublishersService({
+      keyword,
+      limit,
+    });
+
     return res.json(result);
   } catch (e) {
     next(e);

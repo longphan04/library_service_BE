@@ -1,5 +1,6 @@
-import Author from "../models/author.model.js";
-import { appError } from "../utils/appError.js";
+import { Op } from "sequelize";
+import Author from "../../models/author.model.js";
+import { appError } from "../../utils/appError.js";
 
 export async function getAllAuthorsService() {
   // chỉ lấy tên tác giả
@@ -7,6 +8,28 @@ export async function getAllAuthorsService() {
     attributes: ["author_id", "name"],
     order: [["name", "ASC"]],
   });
+}
+
+// Gợi ý tác giả theo tiền tố (prefix)
+// - Chỉ lấy theo trường name
+// - Mỗi lần lấy tối đa 10 kết quả
+export async function suggestAuthorsService({ keyword, limit = 10 } = {}) {
+  const kw = String(keyword ?? "").trim();
+  if (!kw) return { data: [] };
+
+  const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 10);
+
+  const rows = await Author.findAll({
+    attributes: ["author_id", "name"],
+    where: {
+      name: { [Op.like]: `${kw}%` },
+    },
+    order: [["name", "ASC"]],
+    limit: safeLimit,
+    raw: true,
+  });
+
+  return { data: rows };
 }
 
 export async function getAuthorByIdService(authorId) {

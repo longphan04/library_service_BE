@@ -6,10 +6,14 @@ import {
   getAuthorById,
   createAuthor,
   updateAuthor,
-  deleteAuthor
+  deleteAuthor,
+  suggestAuthors
 } from "../controllers/author.controller.js";
 
 const router = express.Router();
+
+// Gợi ý tác giả (autocomplete)
+router.get("/suggest", suggestAuthors);
 
 router.get("/", getAllAuthors);
 router.get("/:id", getAuthorById);

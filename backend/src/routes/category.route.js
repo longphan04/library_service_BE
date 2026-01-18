@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAllCategories, getCategoryById, createCategory, updateCategory, deleteCategory } from "../controllers/category.controller.js";
+import { getAllCategories, getHotCategories, getCategoryById, createCategory, updateCategory, deleteCategory } from "../controllers/category.controller.js";
 import { requireAuthActive } from "../middlewares/auth.middleware.js";
 import { requireRole } from "../middlewares/rbac.middleware.js";
 import { createImageUpload } from "../middlewares/image.middleware.js";
@@ -7,6 +7,8 @@ import { createImageUpload } from "../middlewares/image.middleware.js";
 const router = Router();
 // Lấy tất cả các danh mục
 router.get("/", getAllCategories);
+// lấy danh mục hot nhất(nhiều lượt mượn nhất)
+router.get("/hot", getHotCategories);
 // Lấy danh mục theo ID (nếu cần)
 router.get("/:categoryId", getCategoryById);
 // Tạo danh mục mới

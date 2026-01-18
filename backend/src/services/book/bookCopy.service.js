@@ -1,13 +1,11 @@
-import sequelize from "../config/dbConnection.js";
+import sequelize from "../../config/dbConnection.js";
 import { Op } from "sequelize";
-import Book from "../models/book.model.js";
-import BookCopy from "../models/bookCopy.model.js";
-import BorrowItem from "../models/borrowItem.model.js";
-import BookHold from "../models/bookHold.model.js";
-import { appError } from "../utils/appError.js";
+import Book from "../../models/book.model.js";
+import BookCopy from "../../models/bookCopy.model.js";
+import { appError } from "../../utils/appError.js";
 
 // Cập lại tổng số bản sao và số bản sao khả dụng của sách
-async function recalcCopyCounters(bookId, t) {
+export async function recalcCopyCounters(bookId, t) {
   const total = await BookCopy.count({ where: { book_id: bookId }, transaction: t });
   const available = await BookCopy.count({ where: { book_id: bookId, status: "AVAILABLE" }, transaction: t });
   await Book.update(
@@ -27,14 +25,12 @@ export async function getAllBookCopyService(bookId) {
   });
 }
 
-
 // Lấy bản sao sách theo ID
 export async function getBookCopyByIdService(copyId) {
   return BookCopy.findByPk(copyId, {
     include: [{ model: Book, as: "book" }],
   });
 }
-
 
 // Tạo nhiều book copy tự sinh barcode + note theo format: <prefix>-01..99
 // - prefix = chữ cái đầu của title (upper)
@@ -102,8 +98,8 @@ function pad2(n) {
 }
 
 function generateBarcode() {
-  // barcode unique: BC-<timestamp36>-<rand36>
-  return `BC-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`.toUpperCase();
+  // barcode unique: LM-<timestamp36>-<rand36>
+  return `LM-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`.toUpperCase();
 }
 
 async function createUniqueBarcode(t, maxRetry = 5) {
@@ -112,17 +108,16 @@ async function createUniqueBarcode(t, maxRetry = 5) {
     const existed = await BookCopy.findOne({ where: { barcode: candidate }, transaction: t });
     if (!existed) return candidate;
   }
-  throw appError("Khong the tạo barcode duy nhất", 500);
+  throw appError("Không thể tạo barcode duy nhất", 500);
 }
-  
+
 /**
  * Tạo bản sao sách
- * Cho phép API cũ: nếu client không gửi barcode thì tự sinh (hỗ trợ dùng lại trong tương lai)
+ * Cho phép API cũ: nếu client không gửi barcode thì tự sinh.
  */
 export async function createBookCopyService({ book_id, barcode, status, acquired_at, note }) {
   if (!book_id) throw appError("Thiếu book_id", 400);
 
-  // Cho phép API cũ: nếu client không gửi barcode thì tự sinh (hỗ trợ dùng lại trong tương lai)
   const rawBarcode = barcode && String(barcode).trim();
 
   const book = await Book.findByPk(book_id);
@@ -157,17 +152,17 @@ export async function createBookCopyService({ book_id, barcode, status, acquired
   }
 }
 
-
-/// Cập nhật bản sao sách (chỉ cho cập nhật trạng thái - status)
-export async function updateBookCopyService(copyId, { status } = {}) {
-  const copy = await BookCopy.findByPk(copyId);
+// Cập nhật bản sao sách (chỉ cho cập nhật trạng thái - status)
+export async function updateBookCopyService(copyId, { status } = {}, { transaction = null } = {}) {
+  const copy = await BookCopy.findByPk(copyId, transaction ? { transaction } : undefined);
   if (!copy) return null;
 
-  // chỉ nhận status
   const nextStatus = status ? String(status).trim().toUpperCase() : null;
   if (!nextStatus) throw appError("Thiếu status", 400);
 
-  const t = await sequelize.transaction();
+  const t = transaction ?? (await sequelize.transaction());
+  const shouldCommit = !transaction;
+
   try {
     await copy.update(
       {
@@ -177,11 +172,11 @@ export async function updateBookCopyService(copyId, { status } = {}) {
     );
 
     await recalcCopyCounters(copy.book_id, t);
-    await t.commit();
 
+    if (shouldCommit) await t.commit();
     return copy;
   } catch (e) {
-    await t.rollback();
+    if (shouldCommit) await t.rollback();
     throw e;
   }
 }
@@ -207,6 +202,7 @@ export async function deleteBookCopyService(copyId) {
     throw e;
   }
 }
+
 // Tổng logic cho phần sửa đổi số lượng đầu sách để thêm bookcopy
 
 function escapeRegExp(s) {

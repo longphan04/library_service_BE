@@ -31,7 +31,7 @@ BorrowItem.init(
         allowNull: true 
     },
     status: {
-      type: DataTypes.ENUM("BORROWED", "RETURNED", "REMOVED"),
+      type: DataTypes.ENUM("BORROWED", "RETURNED", "REMOVED", "CANCELLED"),
       allowNull: false,
       defaultValue: "BORROWED",
     },
