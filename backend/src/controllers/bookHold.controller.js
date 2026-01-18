@@ -1,4 +1,4 @@
-import * as bookHoldService from "../services/bookHold.service.js";
+import * as bookHoldService from "../services/book/bookHold.service.js";
 
 // GET /book-hold/me
 export async function getMyBookHolds(req, res, next) {

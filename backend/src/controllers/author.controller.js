@@ -1,9 +1,26 @@
-import * as authorService from "../services/author.service.js";
+import * as authorService from "../services/master-data/author.service.js";
 
 // GET /authors
 export async function getAllAuthors(req, res, next) {
   try {
     const result = await authorService.getAllAuthorsService();
+    return res.json(result);
+  } catch (e) {
+    next(e);
+  }
+}
+
+// GET /authors/suggest?q=...
+export async function suggestAuthors(req, res, next) {
+  try {
+    const keyword = req.query.q ?? req.query.keyword;
+    const limit = req.query.limit;
+
+    const result = await authorService.suggestAuthorsService({
+      keyword,
+      limit,
+    });
+
     return res.json(result);
   } catch (e) {
     next(e);

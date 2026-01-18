@@ -3,6 +3,7 @@ import "dotenv/config";
 import sequelize from "./src/config/dbConnection.js";
 import { applyAllAssociations } from "./src/models/associations.model.js";
 import { startCheckBookHoldCron } from "./src/cron/checkBookHold.js";
+import { startCancelExpiredPickupCron } from "./src/cron/cancelExpiredPickup.js";
 
 const PORT = process.env.PORT || 3000;
 
@@ -13,6 +14,8 @@ async function main() {
     console.log("Connected database success");
     // Khởi động cron job kiểm tra book hold hết hạn
     startCheckBookHoldCron();
+    // Cron tự động huỷ phiếu APPROVED quá hạn đến lấy
+    startCancelExpiredPickupCron();
 
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`Server is running on http://10.0.5.101:${PORT}`);

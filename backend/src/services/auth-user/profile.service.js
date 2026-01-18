@@ -1,8 +1,8 @@
-import Profile from "../models/profile.model.js";
-import User from "../models/user.model.js";
-import Role from "../models/role.model.js";
-import { saveUploadedImage, deletePublicImage } from "../middlewares/image.middleware.js";
-import { appError } from "../utils/appError.js";
+import Profile from "../../models/profile.model.js";
+import User from "../../models/user.model.js";
+import Role from "../../models/role.model.js";
+import { saveUploadedImage, deletePublicImage } from "../../middlewares/image.middleware.js";
+import { appError } from "../../utils/appError.js";
 
 
 // xem profile của chính mình và staff/admin xem profile người dùng khác

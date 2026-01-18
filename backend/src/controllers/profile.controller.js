@@ -1,4 +1,4 @@
-import * as profileService from "../services/profile.service.js";
+import * as profileService from "../services/auth-user/profile.service.js";
 
 // GET /profile/me
 export async function getMyProfile(req, res, next) {

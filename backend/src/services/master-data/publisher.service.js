@@ -1,8 +1,33 @@
-import Publisher from "../models/publisher.model.js";
-import { appError } from "../utils/appError.js";
+import Publisher from "../../models/publisher.model.js";
+import { appError } from "../../utils/appError.js";
+
+// Gợi ý nhà xuất bản theo tiền tố (prefix)
+// - Chỉ lấy theo trường name
+// - Mỗi lần lấy tối đa 10 kết quả
+export async function suggestPublishersService({ keyword, limit = 10 } = {}) {
+  const { Op } = await import("sequelize");
+
+  const kw = String(keyword ?? "").trim();
+  if (!kw) return { data: [] };
+
+  const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 10);
+
+  const rows = await Publisher.findAll({
+    attributes: ["publisher_id", "name"],
+    where: { name: { [Op.like]: `${kw}%` } },
+    order: [["name", "ASC"]],
+    limit: safeLimit,
+    raw: true,
+  });
+
+  return { data: rows };
+}
 
 export async function getAllPublishersService() {
-  return Publisher.findAll({ order: [["created_at", "DESC"]] });
+  return Publisher.findAll({
+    attributes: ["publisher_id", "name"],
+    order: [["name", "ASC"]],
+  });
 }
 
 export async function getPublisherByIdService(publisherId) {

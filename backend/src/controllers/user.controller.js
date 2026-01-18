@@ -1,4 +1,4 @@
-import * as userService from "../services/user.service.js";
+import * as userService from "../services/auth-user/user.service.js";
 
 // GET /users/member (STAFF)
 export async function getAllMembers(req, res, next) {

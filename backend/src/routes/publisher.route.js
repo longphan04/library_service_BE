@@ -6,10 +6,14 @@ import {
   getPublisherById,
   createPublisher,
   updatePublisher,
-  deletePublisher
+  deletePublisher,
+  suggestPublishers
 } from "../controllers/publisher.controller.js";
 
 const router = express.Router();
+
+// Gợi ý nhà xuất bản (autocomplete)
+router.get("/suggest", suggestPublishers);
 
 router.get("/", getAllPublishers);
 router.get("/:id", getPublisherById);

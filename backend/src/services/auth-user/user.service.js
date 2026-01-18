@@ -1,8 +1,8 @@
-import User from "../models/user.model.js";
-import Profile from "../models/profile.model.js";
-import Role from "../models/role.model.js";
+import User from "../../models/user.model.js";
+import Profile from "../../models/profile.model.js";
+import Role from "../../models/role.model.js";
 import { Op, col, where as sqlWhere } from "sequelize";
-import { appError } from "../utils/appError.js";
+import { appError } from "../../utils/appError.js";
 
 // Chuẩn hoá status input
 function normalizeStatus(status) {

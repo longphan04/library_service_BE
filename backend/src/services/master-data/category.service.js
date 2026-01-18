@@ -1,8 +1,8 @@
-import Category from "../models/category.model.js";
-import { saveUploadedImage, deletePublicImage } from "../middlewares/image.middleware.js";
-import { appError } from "../utils/appError.js";
-import Book from "../models/book.model.js";
-import sequelize from "../config/dbConnection.js";
+import Category from "../../models/category.model.js";
+import { saveUploadedImage, deletePublicImage } from "../../middlewares/image.middleware.js";
+import { appError } from "../../utils/appError.js";
+import Book from "../../models/book.model.js";
+import sequelize from "../../config/dbConnection.js";
 
 // Lấy tất cả danh mục, sắp xếp theo tên A-Z, tính số lượng book thuộc mỗi category
 export const getAllCategories = async () => {
@@ -162,4 +162,45 @@ export const deleteCategory = async (categoryId) => {
     }
     throw err;
   }
+};
+
+// Lấy danh mục hot nhất: tổng lượt mượn (SUM books.total_borrow_count) theo từng category
+// - Trả: category_id, name, totalBorrows
+// - Sort giảm dần theo totalBorrows
+// - Dùng LEFT JOIN để category không có sách vẫn trả về (totalBorrows = 0)
+export const getHotCategories = async ({ limit = 20 } = {}) => {
+  const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+
+  const rows = await Category.findAll({
+    // Sửa alias để Sequelize hiểu đúng
+    subQuery: false,
+    attributes: [
+      "category_id",
+      "name",
+      [
+        sequelize.fn(
+          "COALESCE",
+          sequelize.fn("SUM", sequelize.col("books.total_borrow_count")),
+          0
+        ),
+        "totalBorrows",
+      ],
+    ],
+    include: [
+      {
+        model: Book,
+        as: "books",
+        attributes: [],
+        through: { attributes: [] },
+        required: false,
+      },
+    ],
+    group: ["Category.category_id", "Category.name"],
+    // MySQL: order theo alias ok
+    order: [[sequelize.literal("totalBorrows"), "DESC"]],
+    limit: safeLimit,
+    raw: true,
+  });
+
+  return { data: rows };
 };

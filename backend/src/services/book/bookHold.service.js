@@ -1,15 +1,15 @@
-import sequelize from "../config/dbConnection.js";
+import sequelize from "../../config/dbConnection.js";
 import { Op } from "sequelize";
-import BookHold from "../models/bookHold.model.js";
-import BookCopy from "../models/bookCopy.model.js";
-import Book from "../models/book.model.js";
-import Category from "../models/category.model.js";
-import Author from "../models/author.model.js";
-import { appError } from "../utils/appError.js";
+import BookHold from "../../models/bookHold.model.js";
+import BookCopy from "../../models/bookCopy.model.js";
+import Book from "../../models/book.model.js";
+import Category from "../../models/category.model.js";
+import Author from "../../models/author.model.js";
+import { appError } from "../../utils/appError.js";
 import { updateBookCopyService } from "./bookCopy.service.js";
 
 // thời gian giữ sách (phút)
-const HOLD_EXPIRE_MINUTES = 2;
+const HOLD_EXPIRE_MINUTES = 10;
 
 // thêm phút vào date
 function addMinutes(date, minutes) {

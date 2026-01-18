@@ -53,6 +53,35 @@ export async function sendVerifyEmail({ to, token, fullName }) {
   });
 }
 
+/**
+ * MOBILE APP: gửi OTP 6 số để xác nhận email.
+ * - OTP chỉ mang tính tạm thời (mặc định 5 phút)
+ * - Không gửi link trong email để đảm bảo đúng flow app
+ */
+export async function sendVerifyOtpEmail({ to, otp, fullName }) {
+  const transporter = createTransporter();
+  const from = MAIL_FROM || SMTP_USER;
+
+  // Lấy TTL để hiển thị trong email (mặc định 5 phút)
+  const ttlMin = Number(process.env.VERIFY_OTP_TTL_MIN || 5);
+
+  await transporter.sendMail({
+    from,
+    to,
+    subject: "Mã OTP xác nhận email",
+    html: `
+      <div style="font-family:Arial,sans-serif;line-height:1.6">
+        <p>Chào ${fullName || ""},</p>
+        <p>Mã OTP để xác nhận email của bạn là:</p>
+        <div style="font-size:28px;font-weight:700;letter-spacing:4px;margin:12px 0">
+          ${String(otp)}
+        </div>
+        <p style="color:#666;font-size:12px">Mã OTP sẽ hết hạn sau ${ttlMin} phút và chỉ dùng 1 lần.</p>
+        <p style="color:#666;font-size:12px">Nếu bạn không thực hiện đăng ký, hãy bỏ qua email này.</p>
+      </div>
+    `,
+  });
+}
 
 // gửi email đặt lại mật khẩu
 export async function sendResetPasswordEmail({ to, token, fullName }) {

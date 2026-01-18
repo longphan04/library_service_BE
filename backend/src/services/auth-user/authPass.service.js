@@ -1,14 +1,14 @@
 import bcrypt from "bcrypt";
-import sequelize from "../config/dbConnection.js";
+import sequelize from "../../config/dbConnection.js";
 
-import User from "../models/user.model.js";
-import Profile from "../models/profile.model.js";
-import AuthToken from "../models/authToken.model.js";
-import RefreshToken from "../models/refreshToken.model.js";
+import User from "../../models/user.model.js";
+import Profile from "../../models/profile.model.js";
+import AuthToken from "../../models/authToken.model.js";
+import RefreshToken from "../../models/refreshToken.model.js";
 
-import { sha256, randomToken } from "../utils/crypto.js";
-import { sendResetPasswordEmail } from "../utils/mailer.js";
-import { signAccessToken } from "../utils/jwt.js";
+import { sha256, randomToken } from "../../utils/crypto.js";
+import { sendResetPasswordEmail } from "../../utils/mailer.js";
+import { signAccessToken } from "../../utils/jwt.js";
 
 const RESET_TTL_MIN = Number(process.env.RESET_TTL_MIN || 10);
 const SALT_ROUNDS = Number(process.env.BCRYPT_SALT_ROUNDS || 10);

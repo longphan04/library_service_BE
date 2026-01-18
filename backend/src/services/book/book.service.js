@@ -1,15 +1,15 @@
 import { Op } from "sequelize";
-import sequelize from "../config/dbConnection.js";
-import Book from "../models/book.model.js";
-import Category from "../models/category.model.js";
-import Author from "../models/author.model.js";
-import Publisher from "../models/publisher.model.js";
-import Shelf from "../models/shelf.model.js";
-import BookCopy from "../models/bookCopy.model.js";
-import { saveUploadedImage, deletePublicImage } from "../middlewares/image.middleware.js";
-import { appError } from "../utils/appError.js";
-import { createAuthorService } from "../services/author.service.js";
-import { createBookCopiesAutoService, addBookCopiesWithNextNoteService } from "../services/bookCopy.service.js";
+import sequelize from "../../config/dbConnection.js";
+import Book from "../../models/book.model.js";
+import Category from "../../models/category.model.js";
+import Author from "../../models/author.model.js";
+import Publisher from "../../models/publisher.model.js";
+import Shelf from "../../models/shelf.model.js";
+import BookCopy from "../../models/bookCopy.model.js";
+import { saveUploadedImage, deletePublicImage } from "../../middlewares/image.middleware.js";
+import { appError } from "../../utils/appError.js";
+import { createAuthorService } from "../master-data/author.service.js";
+import { addBookCopiesWithNextNoteService, recalcCopyCounters } from "./bookCopy.service.js";
 
 // hàm hỗ trợ parse danh sách id từ mảng hoặc chuỗi
 function parseIdList(value) {
@@ -52,19 +52,18 @@ function includeBookList({ categoryId } = {}) {
   return include;
 }
 
-// Cập lại tổng số bản sao và số bản sao khả dụng của sách
-async function recalcCopyCounters(bookId, t) {
-  const total = await BookCopy.count({ where: { book_id: bookId }, transaction: t });
-  const available = await BookCopy.count({ where: { book_id: bookId, status: "AVAILABLE" }, transaction: t });
-  await Book.update(
-    { total_copies: total, available_copies: available },
-    { where: { book_id: bookId }, transaction: t }
-  );
-}
-
 // Lấy tất cả sách với filter, search, phân trang
 // Yêu cầu: mặc định chỉ lấy status ACTIVE và chỉ trả về các field cần thiết để tối ưu tốc độ
-export async function getAllBooksService({ q, status, categoryId, page = 1, limit = 18 } = {}) {
+export async function getAllBooksService({
+  q,
+  status,
+  categoryId,
+  authorId,
+  publisherId,
+  sort,
+  page = 1,
+  limit = 18,
+} = {}) {
   const safeLimit = Math.min(Math.max(Number(limit) || 18, 1), 100);
   const safePage = Math.max(Number(page) || 1, 1);
   const offset = (safePage - 1) * safeLimit;
@@ -75,21 +74,45 @@ export async function getAllBooksService({ q, status, categoryId, page = 1, limi
   if (status) where.status = String(status).toUpperCase();
   else where.status = "ACTIVE";
 
-  if (q) {
-    where[Op.or] = [
-      { title: { [Op.like]: `%${q}%` } },
-      { isbn: { [Op.like]: `%${q}%` } },
-    ];
+  if (publisherId) {
+    where.publisher_id = Number(publisherId);
   }
 
+  if (q) {
+    where[Op.or] = [{ title: { [Op.like]: `%${q}%` } }, { isbn: { [Op.like]: `%${q}%` } }];
+  }
+
+  // include + filter theo category/author (nếu có)
   const include = includeBookList({ categoryId });
+  if (authorId) {
+    include[2] = {
+      ...include[2],
+      where: { author_id: Number(authorId) },
+      required: true,
+    };
+  }
+
+  // sort
+  const sortKey = String(sort || "").toLowerCase();
+  const order = [];
+  if (sortKey === "popular") {
+    order.push(["total_borrow_count", "DESC"]);
+    // order.push(["book_id", "DESC"]);
+  } else if (sortKey === "newest") {
+    // ưu tiên created_at nếu có, fallback book_id để tránh lỗi schema
+    // order.push(["created_at", "DESC"]);
+    order.push(["book_id", "DESC"]);
+  } else {
+    order.push(["total_borrow_count", "DESC"]);
+    // order.push(["book_id", "DESC"]);
+  }
 
   const { count, rows } = await Book.findAndCountAll({
-    attributes: ["book_id", "cover_url", "title", "available_copies"],
+    attributes: ["book_id", "cover_url", "title", "available_copies", "total_borrow_count"],
     where,
     include,
     distinct: true, // tránh count sai khi join N-N
-    order: [["book_id", "DESC"]], // Thay thế created_at bằng book_id
+    order,
     limit: safeLimit,
     offset,
   });
@@ -118,12 +141,14 @@ export async function getBookByIdService(bookId) {
       "cover_url",
       "total_copies",
       "available_copies",
+      "total_borrow_count",
     ],
     include: includeBookDetail(),
   });
   if (!book) return null;
   return book;
 }
+
 // Tạo sách mới
 export async function createBookService({
   authUserId,
@@ -170,7 +195,7 @@ export async function createBookService({
       if (existed) throw appError("ISBN đã tồn tại", 400);
     }
 
-    // resolve authors: id | name (auto create)
+    // xử lý danh sách tác giả: id | name (tự tạo nếu chưa có)
     const authorIds = await resolveAuthorIds(author_ids, t);
 
     const book = await Book.create(
@@ -193,21 +218,34 @@ export async function createBookService({
     if (categoryIds.length) await book.setCategories(categoryIds, { transaction: t });
     if (authorIds.length) await book.setAuthors(authorIds, { transaction: t });
 
-    // auto-create copies from quantity (tối đa 99)
-    // IMPORTANT: dùng chung transaction để tránh lỗi "Không tìm thấy sách" khi book chưa commit
+    // Tạo book copy nhanh bằng bulkCreate để giảm số lần query
     if (qty && qty > 0) {
-      await createBookCopiesAutoService({
-        book_id: book.book_id,
-        title: book.title,
-        quantity: qty,
-        transaction: t,
-      });
+      const prefix = (String(book.title || "").trim()[0] || "X").toUpperCase().replace(/[^A-Z0-9]/g, "X");
+
+      const barcodes = new Set();
+      while (barcodes.size < qty) {
+        barcodes.add(`LM-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`.toUpperCase());
+      }
+
+      let i = 1;
+      const created = [];
+      for (const bc of barcodes) {
+        created.push({
+          book_id: book.book_id,
+          barcode: bc,
+          status: "AVAILABLE",
+          note: `${prefix}-${String(i++).padStart(2, "0")}`,
+        });
+      }
+
+      await BookCopy.bulkCreate(created, { transaction: t, validate: false });
     }
 
     await recalcCopyCounters(book.book_id, t);
     await t.commit();
 
-    return Book.findByPk(book.book_id, { include: includeBookDetail() });
+    // Trả về dữ liệu book theo format GET /book/:id (không trả về copies)
+    return getBookByIdService(book.book_id);
   } catch (e) {
     await t.rollback();
     if (coverPath) await deletePublicImage(coverPath);
@@ -353,36 +391,25 @@ export async function deleteBookService(bookId) {
 }
 
 // Gợi ý sách theo keyword (autocomplete)
-// - Chỉ lấy tối đa 5 kết quả
-// - Match "đầu từ": keyword phải nằm ở đầu title hoặc ngay sau khoảng trắng
-export async function suggestBooksService({ keyword, limit = 5 } = {}) {
+// - Mặc định lấy tối đa 10 kết quả
+// - Match theo tiền tố (prefix): title bắt đầu bằng keyword
+export async function suggestBooksService({ keyword, limit = 10 } = {}) {
   const kw = String(keyword ?? "").trim();
   if (!kw) {
     return { data: [] };
   }
 
-  const safeLimit = Math.min(Math.max(Number(limit) || 5, 1), 20);
-
-  // Match đầu chuỗi hoặc sau khoảng trắng.
-  // Lưu ý: dùng LIKE để tương thích nhiều DB; nếu cần tối ưu có thể chuyển REGEXP/FTS tùy DB.
-  const like1 = `${kw}%`;
-  const like2 = `% ${kw}%`;
+  const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 10);
 
   const rows = await Book.findAll({
-    attributes: ["book_id", "title", "isbn", "cover_url"],
+    attributes: ["book_id", "title"],
     where: {
-      [Op.and]: [
-        { status: "ACTIVE" },
-        {
-          [Op.or]: [
-            { title: { [Op.like]: like1 } },
-            { title: { [Op.like]: like2 } },
-          ],
-        },
-      ],
+      status: "ACTIVE",
+      title: { [Op.like]: `${kw}%` },
     },
     order: [["title", "ASC"]],
     limit: safeLimit,
+    raw: true,
   });
 
   return { data: rows };

@@ -1,4 +1,4 @@
-import * as categoryService from "../services/category.service.js";
+import * as categoryService from "../services/master-data/category.service.js";
 
 // Lấy tất cả danh mục
 export const getAllCategories = async (req, res, next) => {
@@ -57,6 +57,18 @@ export const deleteCategory = async (req, res, next) => {
     const ok = await categoryService.deleteCategory(req.params.categoryId);
     if (!ok) return res.status(404).json({ message: "Không tìm thấy danh mục" });
     res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Lấy danh mục hot nhất (nhiều lượt mượn nhất)
+// GET /category/hot?limit=10
+export const getHotCategories = async (req, res, next) => {
+  try {
+    const { limit } = req.query;
+    const result = await categoryService.getHotCategories({ limit });
+    return res.json(result);
   } catch (err) {
     next(err);
   }

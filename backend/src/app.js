@@ -13,6 +13,8 @@ import shelfRoutes from "./routes/shelf.route.js";
 import publisherRoutes from "./routes/publisher.route.js";
 import authorRoutes from "./routes/author.route.js";
 import bookHoldsRoutes from "./routes/bookHold.route.js";
+import borrowTicketRoutes from "./routes/borrowTicket.route.js";
+import borrowItemRoutes from "./routes/borrowItem.route.js";
 
 const app = express();
 // Lấy danh sách origin từ biến môi trường
@@ -42,6 +44,8 @@ app.use("/shelf", shelfRoutes);
 app.use("/publisher", publisherRoutes);
 app.use("/author", authorRoutes);
 app.use("/book-hold", bookHoldsRoutes);
+app.use("/borrow-ticket", borrowTicketRoutes);
+app.use("/borrow-item", borrowItemRoutes);
 
 
 // route ảnh tĩnh
