@@ -6,7 +6,7 @@ import { appError } from "../../utils/appError.js";
 // lay tat ca shelf
 export async function getAllShelvesService() {
   // không lấy trường name
-  return Shelf.findAll({ order: [["shelf_id", "ASC"]], attributes: { exclude: ["name"] } });
+  return Shelf.findAll({ order: [["shelf_id", "ASC"]], attributes: { exclude: ["name", "created_at"] } });
 }
 
 // lay shelf theo ID

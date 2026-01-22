@@ -10,9 +10,10 @@ Book.init(
         autoIncrement: true, 
         primaryKey: true 
     },
-    isbn: { 
+    // Mã định danh sách (chuỗi số tự động sinh, không trùng)
+    identifier: { 
         type: DataTypes.STRING(20), 
-        allowNull: true,
+        allowNull: false,
         unique: true 
     },
     title: { 

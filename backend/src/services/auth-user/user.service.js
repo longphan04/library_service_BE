@@ -39,8 +39,8 @@ function buildUserInclude(roleName) {
   return base;
 }
 
-function parsePaging({ page = 1, limit = 18 } = {}) {
-  const safeLimit = Math.min(Math.max(Number(limit) || 18, 1), 100);
+function parsePaging({ page = 1, limit = 10 } = {}) {
+  const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
   const safePage = Math.max(Number(page) || 1, 1);
   return { safeLimit, safePage, offset: (safePage - 1) * safeLimit };
 }
@@ -177,23 +177,67 @@ export async function updateUserStatusService(userId, { status }) {
   return fresh;
 }
 
-
-
 // Xoá user
+// Giải pháp cho staff có lịch sử làm việc:
+// - Kiểm tra xem staff có liên kết với các bảng khác không (books, borrow_tickets)
+// - Nếu có lịch sử làm việc => chuyển status thành BANNED thay vì xóa
+// - Nếu không có lịch sử => xóa hoàn toàn
 export async function deleteUserService(userId) {
   const user = await User.findByPk(userId);
-  if (!user) return false;
+  if (!user) return { deleted: false, reason: "User không tồn tại" };
 
-  // không cho xoá ADMIN để tránh “mất hệ thống”
+  // Kiểm tra role của user
   const userWithRoles = await User.findByPk(userId, {
     include: [{ model: Role, as: "roles", attributes: ["name"], through: { attributes: [] } }],
   });
 
   const roles = (userWithRoles?.roles || []).map((r) => r.name);
+  
+  // Không cho xoá ADMIN để tránh "mất hệ thống"
   if (roles.includes("ADMIN")) {
     throw appError("Không thể xóa tài khoản ADMIN", 400);
   }
+  
+  // Không thể xóa MEMBER
+  if (roles.includes("MEMBER")) {
+    throw appError("Không thể xóa tài khoản MEMBER", 400);
+  }
 
+  // Import model Book để kiểm tra lịch sử tạo/sửa sách
+  const { default: Book } = await import("../../models/book.model.js");
+  const { default: BorrowTicket } = await import("../../models/borrowTicket.model.js");
+
+  // Kiểm tra xem staff có lịch sử làm việc không
+  // - Tạo/sửa sách (created_by, updated_by)
+  // - Duyệt phiếu mượn (approved_by, picked_up_by)
+  const [bookCreated, bookUpdated, ticketApproved, ticketPickedUp] = await Promise.all([
+    Book.count({ where: { created_by: userId } }),
+    Book.count({ where: { updated_by: userId } }),
+    BorrowTicket.count({ where: { approved_by: userId } }),
+    BorrowTicket.count({ where: { picked_up_by: userId } }),
+  ]);
+
+  const hasWorkHistory = bookCreated > 0 || bookUpdated > 0 || ticketApproved > 0 || ticketPickedUp > 0;
+
+  if (hasWorkHistory) {
+    // Staff có lịch sử làm việc => chuyển status thành BANNED thay vì xóa
+    // Điều này giữ lại dữ liệu lịch sử và tránh vi phạm foreign key
+    await user.update({ status: "BANNED" });
+    
+    return {
+      deleted: false,
+      banned: true,
+      reason: "Staff có lịch sử làm việc, đã chuyển sang trạng thái BANNED thay vì xóa",
+      history: {
+        books_created: bookCreated,
+        books_updated: bookUpdated,
+        tickets_approved: ticketApproved,
+        tickets_picked_up: ticketPickedUp,
+      },
+    };
+  }
+
+  // Staff không có lịch sử làm việc => xóa hoàn toàn
   await user.destroy(); // Profile/AuthToken/RefreshToken sẽ CASCADE theo DB
-  return true;
+  return { deleted: true, reason: "Đã xóa staff thành công" };
 }

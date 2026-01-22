@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { register, registerStaff, verifyEmail, resendVerifyEmail, registerMobile, verifyEmailOtp } from "../controllers/authRegister.controller.js";
-import { login, refresh, logout } from "../controllers/authLog.controller.js";
+import { login, loginStaff, refresh, logout } from "../controllers/authLog.controller.js";
 import { forgotPassword, resetPassword, resetPasswordPage, changePassword } from "../controllers/authPass.controller.js";
 import { requireAuthActive } from "../middlewares/auth.middleware.js";
 import { requireRole } from "../middlewares/rbac.middleware.js";
@@ -16,8 +16,11 @@ router.get("/verify-email", verifyEmail);
 // Nhận lại email xác thực (WEB)
 router.post("/resend-verify-email", resendVerifyEmail);
 
-// Đăng nhập, làm mới token, đăng xuất
+// Đăng nhập cho MEMBER
 router.post("/login", login);
+// Đăng nhập cho ADMIN/STAFF
+router.post("/login-staff", loginStaff);
+// Làm mới token, đăng xuất (dùng chung cho cả 2)
 router.post("/refresh", refresh);
 router.post("/logout", logout);
 

@@ -16,6 +16,7 @@ import BookHold from "./bookHold.model.js";
 import BorrowTicket from "./borrowTicket.model.js";
 import BorrowItem from "./borrowItem.model.js";
 import TicketFine from "./ticketFine.model.js";
+import Notification from "./notification.model.js";
 
 export function applyAllAssociations() {
   // ===== AUTH =====
@@ -121,4 +122,8 @@ export function applyAllAssociations() {
 
   User.hasMany(TicketFine, { foreignKey: "member_id", as: "fines" });
   TicketFine.belongsTo(User, { foreignKey: "member_id", as: "member" });
+
+  // ===== NOTIFICATIONS =====
+  User.hasMany(Notification, { foreignKey: "user_id", as: "notifications" });
+  Notification.belongsTo(User, { foreignKey: "user_id", as: "user" });
 }

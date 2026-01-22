@@ -33,23 +33,14 @@ function includeBookDetail() {
 }
 
 // include khi list books (tối ưu field)
-function includeBookList({ categoryId } = {}) {
-  const include = [
+// Luôn trả về TẤT CẢ categories và authors của mỗi sách
+// Việc filter theo category/author sẽ xử lý qua subquery WHERE
+function includeBookList() {
+  return [
     { model: Publisher, as: "publisher", attributes: ["publisher_id", "name"] },
     { model: Category, as: "categories", attributes: ["category_id", "name"], through: { attributes: [] } },
     { model: Author, as: "authors", attributes: ["author_id", "name"], through: { attributes: [] } },
   ];
-
-  // filter theo category (nếu có)
-  if (categoryId) {
-    include[1] = {
-      ...include[1],
-      where: { category_id: categoryId },
-      required: true,
-    };
-  }
-
-  return include;
 }
 
 // Lấy tất cả sách với filter, search, phân trang
@@ -79,32 +70,52 @@ export async function getAllBooksService({
   }
 
   if (q) {
-    where[Op.or] = [{ title: { [Op.like]: `%${q}%` } }, { isbn: { [Op.like]: `%${q}%` } }];
+    where[Op.or] = [{ title: { [Op.like]: `%${q}%` } }, { identifier: { [Op.like]: `%${q}%` } }];
   }
 
-  // include + filter theo category/author (nếu có)
-  const include = includeBookList({ categoryId });
-  if (authorId) {
-    include[2] = {
-      ...include[2],
-      where: { author_id: Number(authorId) },
-      required: true,
-    };
+  // Filter theo category: dùng subquery để lấy book_id thuộc category đó
+  // Nhưng include vẫn trả về TẤT CẢ categories của sách
+  if (categoryId) {
+    const categoryIds = parseIdList(categoryId);
+    if (categoryIds && categoryIds.length) {
+      // Subquery: lấy các book_id có thuộc categoryIds
+      where.book_id = {
+        [Op.in]: sequelize.literal(`(
+          SELECT DISTINCT bc.book_id 
+          FROM book_categories bc 
+          WHERE bc.category_id IN (${categoryIds.join(",")})
+        )`),
+      };
+    }
   }
+
+  // Filter theo author: dùng subquery tương tự
+  if (authorId) {
+    const authorIds = parseIdList(authorId);
+    if (authorIds && authorIds.length) {
+      where.book_id = {
+        ...(where.book_id || {}),
+        [Op.in]: sequelize.literal(`(
+          SELECT DISTINCT ba.book_id 
+          FROM book_authors ba 
+          WHERE ba.author_id IN (${authorIds.join(",")})
+        )`),
+      };
+    }
+  }
+
+  // include luôn trả về đầy đủ categories và authors
+  const include = includeBookList();
 
   // sort
   const sortKey = String(sort || "").toLowerCase();
   const order = [];
   if (sortKey === "popular") {
     order.push(["total_borrow_count", "DESC"]);
-    // order.push(["book_id", "DESC"]);
   } else if (sortKey === "newest") {
-    // ưu tiên created_at nếu có, fallback book_id để tránh lỗi schema
-    // order.push(["created_at", "DESC"]);
     order.push(["book_id", "DESC"]);
   } else {
     order.push(["total_borrow_count", "DESC"]);
-    // order.push(["book_id", "DESC"]);
   }
 
   const { count, rows } = await Book.findAndCountAll({
@@ -148,12 +159,34 @@ export async function getBookByIdService(bookId) {
   if (!book) return null;
   return book;
 }
+// Lấy sách theo Identifier (trang chi tiết) - chỉ trả về các field cần thiết
+export async function getBookByIdentifierService(identifier) {
+  const book = await Book.findOne({
+    attributes: [
+      "book_id",
+      "identifier",
+      "title",
+      "description",
+      "publish_year",
+      "language",
+      "cover_url",
+      "total_copies",
+      "available_copies",
+      "total_borrow_count",
+    ],
+    where: {
+      identifier: String(identifier).trim(),
+    },
+    include: includeBookDetail(),
+  });
+  if (!book) return null;
+  return book;
+}
 
 // Tạo sách mới
 export async function createBookService({
   authUserId,
   coverFile,
-  isbn,
   title,
   description,
   publish_year,
@@ -167,11 +200,6 @@ export async function createBookService({
   copies,
   quantity,
 }) {
-  const normalizedIsbn = isbn !== undefined && isbn !== null ? String(isbn).trim() : "";
-  if (isbn !== undefined && isbn !== null && normalizedIsbn === "") {
-    throw appError("ISBN không hợp lệ", 400);
-  }
-
   if (!title || String(title).trim() === "") throw appError("Tiêu đề là bắt buộc", 400);
   if (!shelf_id) throw appError("shelf_id là bắt buộc", 400);
 
@@ -190,17 +218,15 @@ export async function createBookService({
 
   const t = await sequelize.transaction();
   try {
-    if (normalizedIsbn) {
-      const existed = await Book.findOne({ where: { isbn: normalizedIsbn }, transaction: t });
-      if (existed) throw appError("ISBN đã tồn tại", 400);
-    }
+    // Tự động sinh mã identifier (chuỗi số, unique)
+    const identifier = await generateUniqueIdentifier(t);
 
     // xử lý danh sách tác giả: id | name (tự tạo nếu chưa có)
     const authorIds = await resolveAuthorIds(author_ids, t);
 
     const book = await Book.create(
       {
-        isbn: normalizedIsbn || null,
+        identifier,
         title: String(title).trim(),
         description: description ?? null,
         publish_year: publish_year ?? null,
@@ -258,7 +284,6 @@ export async function updateBookService(
   {
     authUserId,
     coverFile,
-    isbn,
     title,
     description,
     publish_year,
@@ -275,11 +300,6 @@ export async function updateBookService(
 ) {
   const book = await Book.findByPk(bookId);
   if (!book) return null;
-
-  const normalizedIsbn = isbn !== undefined && isbn !== null ? String(isbn).trim() : null;
-  if (isbn !== undefined && isbn !== null && normalizedIsbn === "") {
-    throw appError("ISBN không hợp lệ", 400);
-  }
 
   const categoryIds = parseIdList(category_ids);
 
@@ -300,24 +320,12 @@ export async function updateBookService(
 
   const t = await sequelize.transaction();
   try {
-    // ===== ISBN: cho phép bỏ trống => NULL; nếu có thì check unique =====
-    if (isbn !== undefined && normalizedIsbn) {
-      if (normalizedIsbn !== String(book.isbn ?? "")) {
-        const existed = await Book.findOne({
-          where: { isbn: normalizedIsbn, book_id: { [Op.ne]: bookId } },
-          transaction: t,
-        });
-        if (existed) throw appError("ISBN đã tồn tại", 400);
-      }
-    }
-
     // ===== Tác giả: id | name (auto create) =====
     const authorIds = author_ids !== undefined ? await resolveAuthorIds(author_ids, t) : null;
 
-    // ===== Update thông tin book =====
+    // ===== Update thông tin book (identifier không cho sửa vì được tự sinh) =====
     await book.update(
       {
-        isbn: isbn !== undefined ? (normalizedIsbn || null) : book.isbn,
         title: title !== undefined ? String(title).trim() : book.title,
         description: description !== undefined ? description : book.description,
         publish_year: publish_year !== undefined ? publish_year : book.publish_year,
@@ -393,6 +401,32 @@ export async function deleteBookService(bookId) {
 // Gợi ý sách theo keyword (autocomplete)
 // - Mặc định lấy tối đa 10 kết quả
 // - Match theo tiền tố (prefix): title bắt đầu bằng keyword
+// - Trả về danh sách title KHÔNG TRÙNG (distinct)
+// - Chỉ trả về title, không cần book_id
+// export async function suggestBooksService({ keyword, limit = 10 } = {}) {
+//   const kw = String(keyword ?? "").trim();
+//   if (!kw) {
+//     return { data: [] };
+//   }
+
+//   const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 10);
+
+//   // Dùng DISTINCT để lấy các title không trùng
+//   // Group by title để đảm bảo mỗi title chỉ xuất hiện 1 lần
+//   const rows = await Book.findAll({
+//     attributes: [[sequelize.fn("DISTINCT", sequelize.col("title")), "title"]],
+//     where: {
+//       status: "ACTIVE",
+//       title: { [Op.like]: `${kw}%` },
+//     },
+//     order: [["title", "ASC"]],
+//     limit: safeLimit,
+//     raw: true,
+//   });
+
+//   // Chỉ trả về mảng các title (string)
+//   return { data: rows.map((r) => r.title) };
+// }
 export async function suggestBooksService({ keyword, limit = 10 } = {}) {
   const kw = String(keyword ?? "").trim();
   if (!kw) {
@@ -402,17 +436,31 @@ export async function suggestBooksService({ keyword, limit = 10 } = {}) {
   const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 10);
 
   const rows = await Book.findAll({
-    attributes: ["book_id", "title"],
+    attributes: [
+      [
+        // DISTINCT nhưng phân biệt dấu (THIEN ≠ THIÊN)
+        sequelize.literal("DISTINCT title COLLATE utf8mb4_bin"),
+        "title",
+      ],
+    ],
     where: {
       status: "ACTIVE",
-      title: { [Op.like]: `${kw}%` },
+      // LIKE vẫn giữ để gợi ý theo prefix
+      title: {
+        [Op.like]: `${kw}%`,
+      },
     },
-    order: [["title", "ASC"]],
+    order: [
+      // order cũng phải cùng collation để tránh warning / sort sai
+      [sequelize.literal("title COLLATE utf8mb4_bin"), "ASC"],
+    ],
     limit: safeLimit,
     raw: true,
   });
 
-  return { data: rows };
+  return {
+    data: rows.map((r) => r.title),
+  };
 }
 
 /**
@@ -427,6 +475,52 @@ function toSafeInt(value, { min = 0, max = Number.MAX_SAFE_INTEGER } = {}) {
   const i = Math.trunc(n);
   if (i < min || i > max) return null;
   return i;
+}
+
+/**
+ * Sinh mã identifier tự động cho sách (chuỗi số, unique).
+ * Format: YYYYMMDDHHmmssSSS + 3 số random = 20 ký tự số
+ * - YYYY: năm 4 chữ số
+ * - MM: tháng 2 chữ số  
+ * - DD: ngày 2 chữ số
+ * - HH: giờ 2 chữ số
+ * - mm: phút 2 chữ số
+ * - ss: giây 2 chữ số
+ * - SSS: mili giây 3 chữ số
+ * - XXX: 3 số ngẫu nhiên để tránh trùng
+ * @param {Transaction} t - Sequelize transaction
+ * @param {number} maxRetry - Số lần thử lại tối đa nếu trùng
+ * @returns {Promise<string>} Mã identifier unique
+ */
+async function generateUniqueIdentifier(t, maxRetry = 5) {
+  for (let i = 0; i < maxRetry; i++) {
+    const now = new Date();
+    // Tạo chuỗi số từ timestamp: YYYYMMDDHHmmssSSS
+    const dateStr = now.getFullYear().toString() +
+      String(now.getMonth() + 1).padStart(2, "0") +
+      String(now.getDate()).padStart(2, "0") +
+      String(now.getHours()).padStart(2, "0") +
+      String(now.getMinutes()).padStart(2, "0") +
+      String(now.getSeconds()).padStart(2, "0") +
+      String(now.getMilliseconds()).padStart(3, "0");
+    
+    // Thêm 3 số ngẫu nhiên để tránh trùng khi tạo cùng lúc
+    const randomSuffix = String(Math.floor(Math.random() * 1000)).padStart(3, "0");
+    const identifier = dateStr + randomSuffix;
+
+    // Kiểm tra identifier đã tồn tại chưa
+    const existed = await Book.findOne({
+      where: { identifier },
+      transaction: t,
+    });
+
+    if (!existed) return identifier;
+
+    // Nếu trùng, đợi 1ms rồi thử lại
+    await new Promise((resolve) => setTimeout(resolve, 1));
+  }
+
+  throw appError("Không thể sinh mã định danh sách, vui lòng thử lại", 500);
 }
 
 /**
