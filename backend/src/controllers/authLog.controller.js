@@ -19,12 +19,35 @@ function clearRefreshCookie(res) {
   const name = process.env.COOKIE_NAME || "refresh_token";
   res.clearCookie(name, { path: "/" });
 }
-// Đăng nhập
+// Đăng nhập cho MEMBER
 export async function login(req, res, next) {
   try {
     const { email, password } = req.body;
 
     const result = await authService.loginService({
+      email,
+      password,
+      userAgent: req.get("user-agent"),
+      ip: req.ip,
+    });
+
+    setRefreshCookie(res, result.refreshToken);
+
+    return res.json({
+      accessToken: result.accessToken,
+      user: result.user,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Đăng nhập cho ADMIN/STAFF
+export async function loginStaff(req, res, next) {
+  try {
+    const { email, password } = req.body;
+
+    const result = await authService.loginStaffService({
       email,
       password,
       userAgent: req.get("user-agent"),

@@ -2,35 +2,39 @@ import Category from "../../models/category.model.js";
 import { saveUploadedImage, deletePublicImage } from "../../middlewares/image.middleware.js";
 import { appError } from "../../utils/appError.js";
 import Book from "../../models/book.model.js";
+import BookCopy from "../../models/bookCopy.model.js";
 import sequelize from "../../config/dbConnection.js";
 
-// Lấy tất cả danh mục, sắp xếp theo tên A-Z, tính số lượng book thuộc mỗi category
+/**
+ * Lấy tất cả danh mục với thống kê:
+ * - bookCount: số đầu sách thuộc category
+ * - bookCopyCount: tổng số bản copy của các sách thuộc category
+ * - borrowedCopy: số bản copy đang được mượn (status = 'BORROWED')
+ *
+ * Hiệu năng: dùng raw query với subquery để tránh N+1 và tối ưu tốc độ
+ */
 export const getAllCategories = async () => {
-  const categories = await Category.findAll({
-    attributes: [
-      "category_id",
-      "name",
-      "image",
-      [
-        sequelize.fn("COUNT", sequelize.col("books.book_id")),
-        "bookCount"
-      ]
-    ],
-    include: [
-      {
-        model: Book,
-        as: "books",
-        attributes: [],
-        through: { attributes: [] }, // bảng book_categories
-        required: false
-      }
-    ],
-    group: [
-      "Category.category_id",
-      "Category.name"
-    ],
-    order: [["name", "ASC"]]
-  });
+  // Raw query để tính toán tất cả trong 1 lần, tối ưu hiệu năng
+  const [categories] = await sequelize.query(`
+    SELECT 
+      c.category_id,
+      c.name,
+      c.image,
+      -- Số đầu sách thuộc category
+      COUNT(DISTINCT bc.book_id) AS bookCount,
+      -- Tổng số bản copy của các sách thuộc category
+      COALESCE(SUM(
+        (SELECT COUNT(*) FROM book_copies bcp WHERE bcp.book_id = bc.book_id)
+      ), 0) AS bookCopyCount,
+      -- Số bản copy đang được mượn
+      COALESCE(SUM(
+        (SELECT COUNT(*) FROM book_copies bcp WHERE bcp.book_id = bc.book_id AND bcp.status = 'BORROWED')
+      ), 0) AS borrowedCopy
+    FROM categories c
+    LEFT JOIN book_categories bc ON c.category_id = bc.category_id
+    GROUP BY c.category_id, c.name, c.image
+    ORDER BY c.name ASC
+  `);
 
   return categories;
 };
@@ -165,7 +169,7 @@ export const deleteCategory = async (categoryId) => {
 };
 
 // Lấy danh mục hot nhất: tổng lượt mượn (SUM books.total_borrow_count) theo từng category
-// - Trả: category_id, name, totalBorrows
+// - Trả: category_id, name, image, totalBorrows
 // - Sort giảm dần theo totalBorrows
 // - Dùng LEFT JOIN để category không có sách vẫn trả về (totalBorrows = 0)
 export const getHotCategories = async ({ limit = 20 } = {}) => {
@@ -177,11 +181,22 @@ export const getHotCategories = async ({ limit = 20 } = {}) => {
     attributes: [
       "category_id",
       "name",
+      "image",
       [
-        sequelize.fn(
-          "COALESCE",
-          sequelize.fn("SUM", sequelize.col("books.total_borrow_count")),
-          0
+        sequelize.fn("COUNT", sequelize.col("books.book_id")),
+        "bookCount"
+      ],
+      // [
+      //   sequelize.fn(
+      //     "COALESCE",
+      //     sequelize.fn("SUM", sequelize.col("books.total_borrow_count")),
+      //     0
+      //   ),
+      //   "totalBorrows",
+      // ],
+      [
+        sequelize.literal(
+          "CAST(COALESCE(SUM(books.total_borrow_count), 0) AS UNSIGNED)"
         ),
         "totalBorrows",
       ],

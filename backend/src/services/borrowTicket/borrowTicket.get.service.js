@@ -135,11 +135,12 @@ export async function getAllBorrowTicketsService({ status, page, limit } = {}) {
 
   return {
     data: rows.map(toTicketListDto),
-    paging: {
+    pagination: {
       page: safePage,
       limit: safeLimit,
-      total: count,
-      totalPages: Math.ceil(count / safeLimit),
+      totalItems: count,
+      totalPages: Math.ceil(count / safeLimit) || 1,
+      hasNext: offset + rows.length < count,
     },
   };
 }
@@ -177,11 +178,12 @@ export async function getMyBorrowTicketsService(memberId, { status, page, limit 
 
   return {
     data: rows.map(toTicketListDto),
-    paging: {
+    pagination: {
       page: safePage,
       limit: safeLimit,
-      total: count,
-      totalPages: Math.ceil(count / safeLimit),
+      totalItems: count,
+      totalPages: Math.ceil(count / safeLimit) || 1,
+      hasNext: offset + rows.length < count,
     },
   };
 }

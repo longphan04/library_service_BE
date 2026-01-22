@@ -20,30 +20,23 @@ function refreshExpiresAt() {
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 }
 
-// Đăng nhập
-export async function loginService({ email, password, userAgent, ip }) {
-  if (!email || !password) throw appError("Thiếu email/password", 400);
+// Lấy danh sách tên role của user
+function getRoleNames(user) {
+  return (user.roles || []).map((r) => r.name);
+}
 
-  const user = await User.scope("withPassword").findOne({
-    where: { email },
-    include: [{ model: Role, as: "roles", through: { attributes: [] } }],
-  });
+// Tạo token và lưu refresh token vào DB
+async function createTokensAndSession(user, { userAgent, ip }) {
+  const roles = getRoleNames(user);
 
-  if (!user) throw appError("Sai email hoặc mật khẩu", 401);
-  if (user.status === "PENDING") throw appError("Email chưa xác nhận", 403);
-  if (user.status === "BANNED") throw appError("Tài khoản đã bị khóa", 403);
-
-  const ok = await bcrypt.compare(password, user.password_hash);
-  if (!ok) throw appError("Sai email hoặc mật khẩu", 401);
-
-  // access token
+  // Tạo access token
   const accessToken = signAccessToken({
     user_id: user.user_id,
     email: user.email,
-    roles: (user.roles || []).map((r) => r.name),
+    roles,
   });
 
-  // refresh token (raw + hash)
+  // Tạo refresh token (raw + hash)
   const rawRefresh = randomToken(32);
   const token_hash = sha256(rawRefresh);
 
@@ -65,14 +58,63 @@ export async function loginService({ email, password, userAgent, ip }) {
 
   return {
     accessToken,
-    refreshToken: rawRefresh, // controller sẽ set cookie, không trả json
+    refreshToken: rawRefresh,
     user: {
       user_id: user.user_id,
       email: user.email,
       status: user.status,
-      roles: (user.roles || []).map((r) => r.name),
+      roles,
     },
   };
+}
+
+// Validate thông tin đăng nhập cơ bản
+async function validateLoginCredentials({ email, password }) {
+  if (!email || !password) throw appError("Thiếu email/password", 400);
+
+  const user = await User.scope("withPassword").findOne({
+    where: { email },
+    include: [{ model: Role, as: "roles", through: { attributes: [] } }],
+  });
+
+  if (!user) throw appError("Sai email hoặc mật khẩu", 401);
+  if (user.status === "PENDING") throw appError("Email chưa xác nhận", 403);
+  if (user.status === "BANNED") throw appError("Tài khoản đã bị khóa", 403);
+
+  const ok = await bcrypt.compare(password, user.password_hash);
+  if (!ok) throw appError("Sai email hoặc mật khẩu", 401);
+
+  return user;
+}
+
+// =========================
+// Đăng nhập cho MEMBER (không cho ADMIN/STAFF)
+// =========================
+export async function loginService({ email, password, userAgent, ip }) {
+  const user = await validateLoginCredentials({ email, password });
+  const roles = getRoleNames(user);
+
+  // Chặn ADMIN/STAFF đăng nhập qua API này
+  if (roles.includes("ADMIN") || roles.includes("STAFF")) {
+    throw appError("Tài khoản này không được phép đăng nhập tại đây", 403);
+  }
+
+  return createTokensAndSession(user, { userAgent, ip });
+}
+
+// =========================
+// Đăng nhập cho ADMIN/STAFF (không cho MEMBER)
+// =========================
+export async function loginStaffService({ email, password, userAgent, ip }) {
+  const user = await validateLoginCredentials({ email, password });
+  const roles = getRoleNames(user);
+
+  // Chỉ cho phép ADMIN hoặc STAFF
+  if (!roles.includes("ADMIN") && !roles.includes("STAFF")) {
+    throw appError("Tài khoản không có quyền truy cập hệ thống quản lý", 403);
+  }
+
+  return createTokensAndSession(user, { userAgent, ip });
 }
 
 // Làm mới access token

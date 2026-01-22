@@ -8,6 +8,7 @@ import BookHold from "../../models/bookHold.model.js";
 
 import { appError } from "../../utils/appError.js";
 import { updateBookCopyService } from "../book/bookCopy.service.js";
+import { notifyStaffBorrowCreated } from "../notification/notification.service.js";
 
 const MAX_ITEMS = 5;
 const MAX_ACTIVE_TICKETS = 3;
@@ -144,6 +145,10 @@ export async function createBorrowTicketService({ memberId, book_id, bookId, hol
     for (const c of copiesToBorrow) {
       await updateBookCopyService(c.copy_id, { status: "BORROWED" }, { transaction: t });
     }
+
+    // Gửi thông báo cho staff khi member tạo phiếu mượn mới
+    // (gọi ngoài transaction để không ảnh hưởng logic chính)
+    setImmediate(() => notifyStaffBorrowCreated(ticket));
 
     return {
       data: {

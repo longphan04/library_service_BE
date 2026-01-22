@@ -4,6 +4,7 @@ import sequelize from "./src/config/dbConnection.js";
 import { applyAllAssociations } from "./src/models/associations.model.js";
 import { startCheckBookHoldCron } from "./src/cron/checkBookHold.js";
 import { startCancelExpiredPickupCron } from "./src/cron/cancelExpiredPickup.js";
+import { startCheckOverdueCron } from "./src/cron/checkOverdue.js";
 
 const PORT = process.env.PORT || 3000;
 
@@ -16,6 +17,8 @@ async function main() {
     startCheckBookHoldCron();
     // Cron tự động huỷ phiếu APPROVED quá hạn đến lấy
     startCancelExpiredPickupCron();
+    // Cron kiểm tra phiếu mượn quá hạn và gửi thông báo
+    startCheckOverdueCron();
 
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`Server is running on http://10.0.5.101:${PORT}`);

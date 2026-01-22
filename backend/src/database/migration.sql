@@ -179,12 +179,12 @@ CREATE TABLE shelves (
 
 -- =========================================================
 -- Bảng Books (đầu sách)
--- Dùng để: thông tin sách cho catalog (ISBN, title, cover, category...), KHÔNG phải từng cuốn.
+-- Dùng để: thông tin sách cho catalog (identifier, title, cover, category...), KHÔNG phải từng cuốn.
 -- Có cache total/available để dashboard nhanh (tuỳ bạn dùng hay bỏ).
 -- =========================================================
 CREATE TABLE books (
     book_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    isbn VARCHAR(20) DEFAULT NULL,
+    identifier VARCHAR(20) NOT NULL,
     title VARCHAR(255) NOT NULL,
     description TEXT DEFAULT NULL,
     publish_year INT DEFAULT NULL,
@@ -212,6 +212,7 @@ CREATE TABLE books (
     INDEX idx_books_publisher (publisher_id),
     INDEX idx_books_year (publish_year),
     INDEX idx_books_shelf (shelf_id),
+    UNIQUE KEY uq_books_identifier (identifier),
 
     CONSTRAINT fk_books_publisher
         FOREIGN KEY (publisher_id) REFERENCES publishers(publisher_id) ON DELETE SET NULL,
@@ -343,6 +344,13 @@ CREATE TABLE borrow_tickets (
 
   renew_count TINYINT NOT NULL DEFAULT 0,  -- số lần gia hạn (chỉ 1 lần)
 
+  overdue_notified BOOLEAN NOT NULL DEFAULT FALSE,  
+  -- đánh dấu ĐÃ gửi thông báo quá hạn hay CHƯA
+  -- dùng cho cron, tránh gửi thông báo BORROW_OVERDUE nhiều lần
+
+  returned_at DATETIME NULL,     -- thời điểm trả sách (khi chuyển sang RETURNED)
+  cancelled_at DATETIME NULL,    -- thời điểm hủy phiếu (khi chuyển sang CANCELLED)
+
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
@@ -392,6 +400,34 @@ CREATE TABLE borrow_items (
         FOREIGN KEY (book_id) REFERENCES books(book_id) ON DELETE RESTRICT,
     CONSTRAINT fk_bi_returned_by
         FOREIGN KEY (returned_by) REFERENCES users(user_id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- =========================================================
+-- Bảng Notifications
+-- Dùng để: lưu thông báo gửi đến user (member/staff).
+-- =========================================================
+CREATE TABLE notifications (
+    notification_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    type ENUM(
+        'BORROW_CREATED',
+        'BORROW_APPROVED',
+        'BORROW_PICKED_UP',
+        'BORROW_RETURNED',
+        'BORROW_CANCELLED',
+        'BORROW_OVERDUE'
+    ) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    content TEXT,
+    reference_id BIGINT DEFAULT NULL,  -- borrow_ticket_id
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    INDEX idx_notification_user_read (user_id, is_read),
+    INDEX idx_notification_created (created_at),
+
+    CONSTRAINT fk_notification_user
+        FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- =========================================================

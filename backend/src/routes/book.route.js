@@ -2,7 +2,7 @@ import express from "express";
 import { requireAuthActive } from "../middlewares/auth.middleware.js";
 import { requireRole } from "../middlewares/rbac.middleware.js";
 import { createImageUpload } from "../middlewares/image.middleware.js";
-import { getAllBooks, getBookById, createBook, updateBook, deleteBook, suggestBooks } from "../controllers/book.controller.js";
+import { getAllBooks, getBookById, getBookByIdentifier, createBook, updateBook, deleteBook, suggestBooks } from "../controllers/book.controller.js";
 
 const router = express.Router();
 
@@ -11,6 +11,8 @@ router.get("/suggest", suggestBooks);
 
 // Lấy tất cả các sách
 router.get("/", getAllBooks);
+// Lấy sách theo mã Identifier (phải đặt trước /:id để tránh conflict)
+router.get("/identifier/:identifier", getBookByIdentifier);
 // Lấy sách theo ID
 router.get("/:id", getBookById);
 // Tạo sách mới

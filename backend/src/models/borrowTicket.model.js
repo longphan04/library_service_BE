@@ -57,6 +57,21 @@ BorrowTicket.init(
         allowNull: false, 
         defaultValue: 0 
     },
+    overdue_notified: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
+    },
+    // Thời điểm trả sách (khi chuyển sang RETURNED)
+    returned_at: {
+        type: DataTypes.DATE,
+        allowNull: true
+    },
+    // Thời điểm hủy phiếu (khi chuyển sang CANCELLED)
+    cancelled_at: {
+        type: DataTypes.DATE,
+        allowNull: true
+    },
   },
   {
     sequelize,

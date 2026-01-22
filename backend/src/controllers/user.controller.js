@@ -41,11 +41,28 @@ export async function updateUserStatus(req, res, next) {
 }
 
 // DELETE /users/:userId (ADMIN)
+// Xử lý response phù hợp với logic mới:
+// - Nếu staff có lịch sử làm việc => chuyển BANNED, trả về thông tin chi tiết
+// - Nếu không có lịch sử => xóa hoàn toàn, trả 204
 export async function deleteUser(req, res, next) {
   try {
-    const ok = await userService.deleteUserService(req.params.userId);
-    if (!ok) return res.status(404).json({ message: "User không tồn tại" });
-    return res.status(204).send();
+    const result = await userService.deleteUserService(req.params.userId);
+    
+    // Trường hợp user không tồn tại
+    if (result.reason === "User không tồn tại") {
+      return res.status(404).json({ message: result.reason });
+    }
+    
+    // Trường hợp staff có lịch sử làm việc => đã chuyển BANNED
+    if (result.banned) {
+      return res.status(200).json({
+        message: result.reason,
+        data: result.history,
+      });
+    }
+    
+    // Trường hợp xóa thành công hoàn toàn
+    return res.status(200).json({ message: result.reason });
   } catch (e) {
     next(e);
   }

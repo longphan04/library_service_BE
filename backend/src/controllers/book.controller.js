@@ -32,6 +32,16 @@ export async function getBookById(req, res, next) {
     next(e);
   }
 }
+// GET /books/identifier/:identifier
+export async function getBookByIdentifier(req, res, next) {
+  try {
+    const book = await bookService.getBookByIdentifierService(req.params.identifier);
+    if (!book) return res.status(404).json({ message: "Không tìm thấy sách" });
+    return res.json(book);
+  } catch (e) {
+    next(e);
+  }
+}
 
 // POST /books
 export async function createBook(req, res, next) {

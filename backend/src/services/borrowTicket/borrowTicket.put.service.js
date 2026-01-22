@@ -6,6 +6,12 @@ import BorrowItem from "../../models/borrowItem.model.js";
 
 import { appError } from "../../utils/appError.js";
 import { syncBorrowItemsWithTicketFinalStatus } from "../borrowItem/borrow-state.service.js";
+import {
+  notifyMemberApproved,
+  notifyMemberPickedUp,
+  notifyMemberReturned,
+  notifyMemberCancelled,
+} from "../notification/notification.service.js";
 
 // =========================
 // Helper chung
@@ -82,7 +88,7 @@ export async function updateBorrowTicketForMemberService(
     // Member cancel: dùng transaction để đảm bảo ticket và items đồng bộ
     return await sequelize.transaction(async (t) => {
       const [affected] = await BorrowTicket.update(
-        { status: "CANCELLED" },
+        { status: "CANCELLED", cancelled_at: new Date() },
         {
           where: {
             ticket_id: id,
@@ -204,6 +210,8 @@ export async function updateBorrowTicketForStaffService(
     const ticket = await BorrowTicket.findByPk(id, {
       attributes: [
         "ticket_id",
+        "ticket_code",
+        "member_id",
         "status",
         "approved_at",
         "pickup_expires_at",
@@ -231,8 +239,8 @@ export async function updateBorrowTicketForStaffService(
     }
 
     if (current === "PENDING" && nextStatus === "CANCELLED") {
-      // hủy từ PENDING: không bắt buộc set approver
-      // giữ data lịch sử tối giản
+      // Hủy từ PENDING: set thời điểm hủy
+      patch.cancelled_at = new Date();
     }
 
     if (current === "APPROVED" && nextStatus === "PICKED_UP") {
@@ -243,9 +251,8 @@ export async function updateBorrowTicketForStaffService(
     }
 
     if (current === "PICKED_UP" && nextStatus === "RETURNED") {
-      // Bỏ ràng buộc số lượng item chưa trả.
-      // Vì sau khi ticket chuyển RETURNED sẽ gọi syncBorrowItemsWithTicketFinalStatus
-      // để đồng bộ trạng thái items + book_copy.
+      // Set thời điểm trả sách
+      patch.returned_at = new Date();
     }
 
     await ticket.update(patch, { transaction: t });
@@ -256,6 +263,26 @@ export async function updateBorrowTicketForStaffService(
         transaction: t,
         staffUserId: staffId,
       });
+    }
+
+    // Gửi thông báo cho member theo trạng thái mới
+    // (gọi ngoài transaction để không ảnh hưởng logic chính)
+    const ticketData = {
+      ticket_id: ticket.ticket_id,
+      ticket_code: ticket.ticket_code,
+      member_id: ticket.member_id,
+      pickup_expires_at: ticket.pickup_expires_at,
+      due_date: ticket.due_date,
+    };
+
+    if (nextStatus === "APPROVED") {
+      setImmediate(() => notifyMemberApproved(ticketData));
+    } else if (nextStatus === "PICKED_UP") {
+      setImmediate(() => notifyMemberPickedUp(ticketData));
+    } else if (nextStatus === "RETURNED") {
+      setImmediate(() => notifyMemberReturned(ticketData));
+    } else if (nextStatus === "CANCELLED") {
+      setImmediate(() => notifyMemberCancelled(ticketData, "Staff đã hủy phiếu"));
     }
 
     return {
