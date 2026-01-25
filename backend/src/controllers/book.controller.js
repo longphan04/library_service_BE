@@ -1,4 +1,5 @@
 import * as bookService from "../services/book/book.service.js";
+import * as bookRecommendService from "../services/book/bookRecommend.service.js";
 
 // GET /books
 export async function getAllBooks(req, res, next) {
@@ -23,10 +24,18 @@ export async function getAllBooks(req, res, next) {
 }
 
 // GET /books/:id
+// Nếu user đã đăng nhập → ghi lại hành vi xem sách
 export async function getBookById(req, res, next) {
   try {
     const book = await bookService.getBookByIdService(req.params.id);
     if (!book) return res.status(404).json({ message: "Không tìm thấy sách" });
+
+    // Ghi log view nếu user đã đăng nhập (không await để không block response)
+    const userId = req.auth?.user_id;
+    if (userId && book.book_id) {
+      bookRecommendService.logBookViewService({ userId, bookId: book.book_id }).catch(() => {});
+    }
+
     return res.json(book);
   } catch (e) {
     next(e);
@@ -98,6 +107,24 @@ export async function suggestBooks(req, res, next) {
 
     const result = await bookService.suggestBooksService({ keyword, limit });
     res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+// GET /books/recommendation
+// Gợi ý sách dựa trên lịch sử xem của user (chỉ cho user đã đăng nhập)
+export async function getRecommendations(req, res, next) {
+  try {
+    const userId = req.auth?.user_id;
+    const limit = req.query.limit;
+
+    const result = await bookRecommendService.getRecommendationsService({
+      userId,
+      limit,
+    });
+
+    return res.json(result);
   } catch (error) {
     next(error);
   }

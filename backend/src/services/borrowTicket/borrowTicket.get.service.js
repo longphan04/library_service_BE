@@ -3,6 +3,9 @@ import BorrowItem from "../../models/borrowItem.model.js";
 import BookCopy from "../../models/bookCopy.model.js";
 import Book from "../../models/book.model.js";
 import { appError } from "../../utils/appError.js";
+import User from "../../models/user.model.js";
+import Profile from "../../models/profile.model.js";
+import { Op } from "sequelize";
 
 // tiếng việt
 // hợp lệ trạng thái mượn
@@ -67,6 +70,9 @@ function toTicketDetailDto(ticketRow) {
 
   const base = toTicketBaseDto(t);
 
+  const memberUser = t.member || null;
+  const memberProfile = memberUser?.profile || null;
+
   const items = (t.items || []).map((it) => ({
     status: it.status,
     copy: {
@@ -80,7 +86,21 @@ function toTicketDetailDto(ticketRow) {
     },
   }));
 
-  return { ...base, items };
+  return {
+    ...base,
+    member: memberUser
+      ? {
+          member_id: memberUser.user_id ?? t.member_id ?? null,
+          email: memberUser.email ?? null,
+          full_name: memberProfile?.full_name ?? null,
+        }
+      : {
+          member_id: t.member_id ?? null,
+          email: null,
+          full_name: null,
+        },
+    items,
+  };
 }
 // include items cho detail
 function includeItemsForDetail() {
@@ -109,11 +129,40 @@ function includeItemsForDetail() {
 }
 
 // STAFF: GET /borrow-ticket
-export async function getAllBorrowTicketsService({ status, page, limit } = {}) {
+// có thể lọc trạng thái
+// có thể tìm kiếm phiếu mượn theo tên full_name của member
+export async function getAllBorrowTicketsService({ status, q, page, limit } = {}) {
   const { safeLimit, safePage, offset } = parsePaging({ page, limit });
   const s = normalizeStatusFilter(status);
 
   const where = s ? { status: s } : {};
+
+  // Xử lý tìm kiếm theo tên member
+  let includeConditions = [
+    {
+      model: User,
+      as: "member",
+      attributes: ["user_id", "email"],
+      required: true,
+      include: [
+        {
+          model: Profile,
+          as: "profile",
+          attributes: ["full_name"],
+          required: false,
+        },
+      ],
+    },
+  ];
+
+  // Nếu có query tìm kiếm theo tên
+  const searchQuery = String(q ?? "").trim();
+  if (searchQuery) {
+    includeConditions[0].include[0].where = {
+      full_name: { [Op.like]: `%${searchQuery}%` }
+    };
+    includeConditions[0].include[0].required = true;
+  }
 
   const { count, rows } = await BorrowTicket.findAndCountAll({
     where,
@@ -128,13 +177,27 @@ export async function getAllBorrowTicketsService({ status, page, limit } = {}) {
       "due_date",
       "renew_count",
     ],
+    include: includeConditions,
     order: [["ticket_id", "DESC"]],
     limit: safeLimit,
     offset,
+    distinct: true, // Đảm bảo count chính xác khi có join
   });
 
   return {
-    data: rows.map(toTicketListDto),
+    data: rows.map((row) => {
+      const ticket = toTicketListDto(row);
+      const member = row.member || {};
+      const profile = member.profile || {};
+      return {
+        ...ticket,
+        user: {
+          member_id: member.user_id,
+          email: member.email,
+          full_name: profile.full_name,
+        },
+      };
+    }),
     pagination: {
       page: safePage,
       limit: safeLimit,
@@ -220,7 +283,23 @@ export async function getBorrowTicketByIdService({ ticketId, requesterUserId, re
       "due_date",
       "renew_count",
     ],
-    include: includeItemsForDetail(),
+    include: [
+      {
+        model: User,
+        as: "member",
+        attributes: ["user_id", "email"],
+        required: true,
+        include: [
+          {
+            model: Profile,
+            as: "profile",
+            attributes: ["full_name"],
+            required: false,
+          },
+        ],
+      },
+      ...includeItemsForDetail(),
+    ],
   });
 
   if (!ticket) return null;

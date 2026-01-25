@@ -17,6 +17,23 @@ export function requireAuth(req, res, next) {
   }
 }
 
+// Route optional đăng nhập (không bắt buộc, chỉ parse token nếu có)
+// Dùng cho các route public nhưng cần biết user nếu đã đăng nhập (vd: log view)
+export function optionalAuth(req, res, next) {
+  try {
+    const h = req.headers.authorization || "";
+    const token = h.startsWith("Bearer ") ? h.slice(7) : null;
+    if (token) {
+      const payload = verifyAccessToken(token);
+      req.auth = payload;
+    }
+  } catch (e) {
+    // Bỏ qua lỗi token, tiếp tục xử lý như anonymous
+    req.auth = null;
+  }
+  return next();
+}
+
 // Route cần user ACTIVE
 export async function requireActiveUser(req, res, next) {
   try {

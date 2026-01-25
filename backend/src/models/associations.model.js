@@ -13,6 +13,7 @@ import BookCategory from "./bookCategory.model.js";
 import BookAuthor from "./bookAuthor.model.js";
 import BookCopy from "./bookCopy.model.js";
 import BookHold from "./bookHold.model.js";
+import BookView from "./bookView.model.js";
 import BorrowTicket from "./borrowTicket.model.js";
 import BorrowItem from "./borrowItem.model.js";
 import TicketFine from "./ticketFine.model.js";
@@ -126,4 +127,11 @@ export function applyAllAssociations() {
   // ===== NOTIFICATIONS =====
   User.hasMany(Notification, { foreignKey: "user_id", as: "notifications" });
   Notification.belongsTo(User, { foreignKey: "user_id", as: "user" });
+
+  // ===== BOOK VIEWS (lịch sử xem sách) =====
+  User.hasMany(BookView, { foreignKey: "user_id", as: "bookViews" });
+  BookView.belongsTo(User, { foreignKey: "user_id", as: "user" });
+
+  Book.hasMany(BookView, { foreignKey: "book_id", as: "views" });
+  BookView.belongsTo(Book, { foreignKey: "book_id", as: "book" });
 }

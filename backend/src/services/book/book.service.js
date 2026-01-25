@@ -9,6 +9,7 @@ import BookCopy from "../../models/bookCopy.model.js";
 import { saveUploadedImage, deletePublicImage } from "../../middlewares/image.middleware.js";
 import { appError } from "../../utils/appError.js";
 import { createAuthorService } from "../master-data/author.service.js";
+import { createPublisherService } from "../master-data/publisher.service.js";
 import { addBookCopiesWithNextNoteService, recalcCopyCounters } from "./bookCopy.service.js";
 
 // hàm hỗ trợ parse danh sách id từ mảng hoặc chuỗi
@@ -224,6 +225,9 @@ export async function createBookService({
     // xử lý danh sách tác giả: id | name (tự tạo nếu chưa có)
     const authorIds = await resolveAuthorIds(author_ids, t);
 
+    // xử lý publisher: id | name (tự tạo nếu chưa có, giống logic author)
+    const resolvedPublisherId = await resolvePublisherId(publisher_id, t);
+
     const book = await Book.create(
       {
         identifier,
@@ -232,7 +236,7 @@ export async function createBookService({
         publish_year: publish_year ?? null,
         language: language ?? null,
         cover_url: coverPath,
-        publisher_id: publisher_id ?? null,
+        publisher_id: resolvedPublisherId,
         shelf_id,
         status: status ? String(status).toUpperCase() : "ACTIVE",
         created_by: authUserId ?? null,
@@ -323,6 +327,9 @@ export async function updateBookService(
     // ===== Tác giả: id | name (auto create) =====
     const authorIds = author_ids !== undefined ? await resolveAuthorIds(author_ids, t) : null;
 
+    // ===== Publisher: id | name (auto create, giống logic author) =====
+    const resolvedPublisherId = publisher_id !== undefined ? await resolvePublisherId(publisher_id, t) : undefined;
+
     // ===== Update thông tin book (identifier không cho sửa vì được tự sinh) =====
     await book.update(
       {
@@ -330,7 +337,7 @@ export async function updateBookService(
         description: description !== undefined ? description : book.description,
         publish_year: publish_year !== undefined ? publish_year : book.publish_year,
         language: language !== undefined ? language : book.language,
-        publisher_id: publisher_id !== undefined ? publisher_id : book.publisher_id,
+        publisher_id: resolvedPublisherId !== undefined ? resolvedPublisherId : book.publisher_id,
         shelf_id: shelf_id !== undefined ? shelf_id : book.shelf_id,
         status: status !== undefined ? String(status).toUpperCase() : book.status,
         cover_url: newCover || book.cover_url,
@@ -597,4 +604,64 @@ async function resolveAuthorIds(inputAuthors, t) {
   }
 
   return [...new Set(ids)].filter((x) => Number.isFinite(Number(x)));
+}
+
+/**
+ * Chuẩn hóa input publisher từ FE.
+ * Hỗ trợ: number (id), string (name hoặc id), object {publisher_id|id|name}
+ */
+function parsePublisherInput(value) {
+  if (value === undefined || value === null || value === "") return null;
+
+  // nếu là JSON string (multipart/form-data)
+  const s = String(value).trim();
+  if ((s.startsWith("{") && s.endsWith("}")) || (s.startsWith("[") && s.endsWith("]"))) {
+    try {
+      return JSON.parse(s);
+    } catch {
+      return s;
+    }
+  }
+
+  return value;
+}
+
+/**
+ * Resolve publisher thành publisher_id.
+ * - Nếu là số hoặc chuỗi số => coi là publisher_id.
+ * - Nếu là string (không phải số) => coi là tên publisher, tự tạo nếu chưa có.
+ * - Nếu là object => ưu tiên {publisher_id|id}, nếu không có thì dùng {name}.
+ */
+async function resolvePublisherId(inputPublisher, t) {
+  const item = parsePublisherInput(inputPublisher);
+  if (item === null) return null;
+
+  // number => publisher_id
+  const n = Number(item);
+  if (Number.isFinite(n) && String(item).trim() !== "") {
+    return Math.trunc(n);
+  }
+
+  // object: {publisher_id} | {id} | {name}
+  if (item && typeof item === "object") {
+    const maybeId = item.publisher_id ?? item.id;
+    const maybeIdNum = Number(maybeId);
+    if (Number.isFinite(maybeIdNum)) {
+      return Math.trunc(maybeIdNum);
+    }
+
+    const name = item.name;
+    if (name && String(name).trim()) {
+      const created = await createPublisherService({ name: String(name).trim() }, t);
+      return created.publisher_id;
+    }
+
+    throw appError("Dữ liệu nhà xuất bản không hợp lệ", 400);
+  }
+
+  // string name => tự tạo nếu chưa có
+  const name = String(item).trim();
+  if (!name) return null;
+  const created = await createPublisherService({ name }, t);
+  return created.publisher_id;
 }
