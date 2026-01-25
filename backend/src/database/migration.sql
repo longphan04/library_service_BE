@@ -468,6 +468,27 @@ CREATE TABLE ticket_fines (
 
 
 -- =========================================================
+-- Bảng Book_Views (lịch sử xem chi tiết sách của user)
+-- Dùng để gợi ý sách dựa trên hành vi xem
+-- =========================================================
+CREATE TABLE book_views (
+  view_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  book_id BIGINT NOT NULL,
+  viewed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  INDEX idx_view_user (user_id),
+  INDEX idx_view_book (book_id),
+  INDEX idx_view_time (viewed_at),
+
+  CONSTRAINT fk_view_user
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+  CONSTRAINT fk_view_book
+    FOREIGN KEY (book_id) REFERENCES books(book_id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+
+-- =========================================================
 -- TRIGGERS tự động cập nhật số lượng sách trong books khi thay đổi book_copies
 -- và tự động đổi trạng thái book_copies khi mượn/trả trong borrow_items
 -- =========================================================
@@ -595,26 +616,52 @@ INSERT INTO roles(name, description) VALUES
 -- Seed dữ liệu kệ sách mẫu
 -- =========================================================
 INSERT INTO shelves (code, name) VALUES
-('1A-01', 'Dãy 1A - Kệ 01'),
-('1A-02', 'Dãy 1A - Kệ 02'),
-('1A-03', 'Dãy 1A - Kệ 03'),
-('1A-04', 'Dãy 1A - Kệ 04'),
-('1A-05', 'Dãy 1A - Kệ 05'),
+('1A-01', 'Day 1A - Ke 01'),
+('1A-02', 'Day 1A - Ke 02'),
+('1A-03', 'Day 1A - Ke 03'),
+('1A-04', 'Day 1A - Ke 04'),
+('1A-05', 'Day 1A - Ke 05'),
 
-('1B-01', 'Dãy 1B - Kệ 01'),
-('1B-02', 'Dãy 1B - Kệ 02'),
-('1B-03', 'Dãy 1B - Kệ 03'),
-('1B-04', 'Dãy 1B - Kệ 04'),
-('1B-05', 'Dãy 1B - Kệ 05'),
+('1B-01', 'Day 1B - Ke 01'),
+('1B-02', 'Day 1B - Ke 02'),
+('1B-03', 'Day 1B - Ke 03'),
+('1B-04', 'Day 1B - Ke 04'),
+('1B-05', 'Day 1B - Ke 05'),
 
-('1C-01', 'Dãy 1C - Kệ 01'),
-('1C-02', 'Dãy 1C - Kệ 02'),
-('1C-03', 'Dãy 1C - Kệ 03'),
-('1C-04', 'Dãy 1C - Kệ 04'),
-('1C-05', 'Dãy 1C - Kệ 05'),
+('1C-01', 'Day 1C - Ke 01'),
+('1C-02', 'Day 1C - Ke 02'),
+('1C-03', 'Day 1C - Ke 03'),
+('1C-04', 'Day 1C - Ke 04'),
+('1C-05', 'Day 1C - Ke 05'),
 
-('1D-01', 'Dãy 1D - Kệ 01'),
-('1D-02', 'Dãy 1D - Kệ 02'),
-('1D-03', 'Dãy 1D - Kệ 03'),
-('1D-04', 'Dãy 1D - Kệ 04'),
-('1D-05', 'Dãy 1D - Kệ 05');
+('1D-01', 'Day 1D - Ke 01'),
+('1D-02', 'Day 1D - Ke 02'),
+('1D-03', 'Day 1D - Ke 03'),
+('1D-04', 'Day 1D - Ke 04'),
+('1D-05', 'Day 1D - Ke 05');
+
+INSERT INTO categories (name, image) VALUES
+('Công nghệ thông tin', 'category/it.jpg'),
+('Máy tính', 'category/computer_science.jpg'),
+('Trí tuệ và Dữ liệu', 'category/ai_data.jpg'),
+('Kỹ thuật', 'category/engineering.jpg'),
+
+('Toán', 'category/math.jpg'),
+('Vật lý', 'category/physics.jpg'),
+('Hóa học', 'category/chemistry.jpg'),
+('Sinh học', 'category/biology.jpg'),
+('Môi trường', 'category/environment.jpg'),
+
+('Kinh tế', 'category/economics.jpg'),
+('Kinh doanh', 'category/business.jpg'),
+('Tài chính', 'category/finance.jpg'),
+('Marketing', 'category/marketing.jpg'),
+('Khởi nghiệp', 'category/startup.jpg'),
+
+('Tâm lý', 'category/psychology.jpg'),
+('Xã hội', 'category/society.jpg'),
+('Lịch sử', 'category/history.jpg'),
+('Giáo dục', 'category/education.jpg'),
+
+('Ngoại ngữ', 'category/language.jpg'),
+('Kỹ năng', 'category/self_development.jpg');

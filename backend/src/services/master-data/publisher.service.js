@@ -34,16 +34,25 @@ export async function getPublisherByIdService(publisherId) {
   return Publisher.findByPk(publisherId);
 }
 
-export async function createPublisherService({ name }) {
+export async function createPublisherService({ name }, t = null) {
   if (!name || String(name).trim() === "") {
     throw appError("Tên nhà xuất bản là bắt buộc", 400);
   }
 
   const trimmed = String(name).trim();
-  const existed = await Publisher.findOne({ where: { name: trimmed } });
-  if (existed) throw appError("Tên nhà xuất bản đã tồn tại", 400);
+  const existed = await Publisher.findOne({
+    where: { name: trimmed },
+    ...(t ? { transaction: t } : {}),
+  });
 
-  return Publisher.create({ name: trimmed });
+  // Nếu đã có thì trả về luôn (id để gán vào book) thay vì throw,
+  // giúp flow "name => create or reuse" gọn và tránh race.
+  if (existed) return existed;
+
+  return Publisher.create(
+    { name: trimmed },
+    t ? { transaction: t } : undefined
+  );
 }
 
 export async function updatePublisherService(publisherId, { name }) {

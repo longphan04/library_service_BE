@@ -49,11 +49,14 @@ function formatDateLabel(dateStr) {
  * @returns {Object} - Dữ liệu thống kê cho biểu đồ
  */
 export async function getTicketFlowStatsService({ period = "week" } = {}) {
-  // Xác định khoảng thời gian
+  // Xác định khoảng thời gian (bao gồm ngày hiện tại)
+  // week: 6 ngày trước + ngày hiện tại = 7 ngày
+  // month: 29 ngày trước + ngày hiện tại = 30 ngày
   const days = period === "month" ? 30 : 7;
   const endDate = new Date();
+  endDate.setHours(23, 59, 59, 999); // cuối ngày hiện tại
   const startDate = new Date();
-  startDate.setDate(endDate.getDate() - days + 1);
+  startDate.setDate(endDate.getDate() - days + 1); // lùi (days-1) ngày để bao gồm ngày hiện tại
   startDate.setHours(0, 0, 0, 0);
 
   // Tạo danh sách ngày

@@ -5,6 +5,7 @@ import { applyAllAssociations } from "./src/models/associations.model.js";
 import { startCheckBookHoldCron } from "./src/cron/checkBookHold.js";
 import { startCancelExpiredPickupCron } from "./src/cron/cancelExpiredPickup.js";
 import { startCheckOverdueCron } from "./src/cron/checkOverdue.js";
+import { initAdminAccount } from "./src/init/admin.init.js";
 
 const PORT = process.env.PORT || 3000;
 
@@ -13,6 +14,10 @@ async function main() {
     applyAllAssociations(); // <-- đặt ở đây (1 lần)
     await sequelize.authenticate();
     console.log("Connected database success");
+
+    // Tự động tạo tài khoản admin nếu chưa có
+    await initAdminAccount();
+
     // Khởi động cron job kiểm tra book hold hết hạn
     startCheckBookHoldCron();
     // Cron tự động huỷ phiếu APPROVED quá hạn đến lấy
