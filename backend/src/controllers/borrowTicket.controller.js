@@ -103,3 +103,17 @@ export async function updateBorrowTicketForStaff(req, res, next) {
     next(e);
   }
 }
+
+// STAFF: GET /borrow-ticket/user/:userId
+// Xem tất cả phiếu mượn của một user cụ thể
+export async function getBorrowTicketsByUserId(req, res, next) {
+  try {
+    const { userId } = req.params;
+    const { status, page, limit } = req.query;
+
+    const result = await borrowTicketService.getBorrowTicketsByUserIdService(userId, { status, page, limit });
+    return res.json(result);
+  } catch (e) {
+    next(e);
+  }
+}

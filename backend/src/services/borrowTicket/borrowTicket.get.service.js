@@ -2,6 +2,8 @@ import BorrowTicket from "../../models/borrowTicket.model.js";
 import BorrowItem from "../../models/borrowItem.model.js";
 import BookCopy from "../../models/bookCopy.model.js";
 import Book from "../../models/book.model.js";
+import Author from "../../models/author.model.js";
+import Publisher from "../../models/publisher.model.js";
 import { appError } from "../../utils/appError.js";
 import User from "../../models/user.model.js";
 import Profile from "../../models/profile.model.js";
@@ -45,6 +47,8 @@ function toTicketListDto(row) {
     pickup_expires_at: r.pickup_expires_at,
     picked_up_at: r.picked_up_at,
     due_date: r.due_date,
+    returned_at: r.returned_at,
+    cancelled_at: r.cancelled_at,
     renew_count: r.renew_count,
     ...overdue,
   };
@@ -61,6 +65,8 @@ function toTicketBaseDto(ticket) {
     pickup_expires_at: t.pickup_expires_at,
     picked_up_at: t.picked_up_at,
     due_date: t.due_date,
+    returned_at: t.returned_at,
+    cancelled_at: t.cancelled_at,
     renew_count: t.renew_count,
   };
 }
@@ -83,6 +89,18 @@ function toTicketDetailDto(ticketRow) {
       book_id: it.book?.book_id ?? it.book_id,
       title: it.book?.title ?? null,
       cover_url: it.book?.cover_url ?? null,
+      publisher: it.book?.publisher
+        ? {
+            publisher_id: it.book.publisher.publisher_id ?? null,
+            name: it.book.publisher.name ?? null,
+          }
+        : null,
+      authors: Array.isArray(it.book?.authors)
+        ? it.book.authors.map((a) => ({
+            author_id: a.author_id ?? null,
+            name: a.name ?? null,
+          }))
+        : [],
     },
   }));
 
@@ -122,6 +140,21 @@ function includeItemsForDetail() {
           as: "book",
           attributes: ["book_id", "title", "cover_url"],
           required: true,
+          include: [
+            {
+              model: Publisher,
+              as: "publisher",
+              attributes: ["publisher_id", "name"],
+              required: false,
+            },
+            {
+              model: Author,
+              as: "authors",
+              attributes: ["author_id", "name"],
+              through: { attributes: [] },
+              required: false,
+            },
+          ],
         },
       ],
     },
@@ -175,6 +208,8 @@ export async function getAllBorrowTicketsService({ status, q, page, limit } = {}
       "pickup_expires_at",
       "picked_up_at",
       "due_date",
+      "returned_at",
+      "cancelled_at",
       "renew_count",
     ],
     include: includeConditions,
@@ -232,6 +267,8 @@ export async function getMyBorrowTicketsService(memberId, { status, page, limit 
       "pickup_expires_at",
       "picked_up_at",
       "due_date",
+      "returned_at",
+      "cancelled_at",
       "renew_count",
     ],
     order: [["ticket_id", "DESC"]],
@@ -241,6 +278,83 @@ export async function getMyBorrowTicketsService(memberId, { status, page, limit 
 
   return {
     data: rows.map(toTicketListDto),
+    pagination: {
+      page: safePage,
+      limit: safeLimit,
+      totalItems: count,
+      totalPages: Math.ceil(count / safeLimit) || 1,
+      hasNext: offset + rows.length < count,
+    },
+  };
+}
+
+// STAFF: GET /borrow-ticket/user/:userId
+// Cho phép STAFF xem phiếu mượn của một user cụ thể (giống getMyBorrowTicketsService nhưng dành cho staff)
+export async function getBorrowTicketsByUserIdService(userId, { status, page, limit } = {}) {
+  const id = Number(userId);
+  if (!Number.isFinite(id)) throw appError("userId không hợp lệ", 400);
+
+  const { safeLimit, safePage, offset } = parsePaging({ page, limit });
+  const s = normalizeStatusFilter(status);
+
+  const where = {
+    member_id: id,
+    ...(s ? { status: s } : {}),
+  };
+
+  // Include thông tin user để trả về cùng kết quả
+  const { count, rows } = await BorrowTicket.findAndCountAll({
+    where,
+    attributes: [
+      "ticket_id",
+      "ticket_code",
+      "status",
+      "requested_at",
+      "approved_at",
+      "pickup_expires_at",
+      "picked_up_at",
+      "due_date",
+      "returned_at",
+      "cancelled_at",
+      "renew_count",
+    ],
+    include: [
+      {
+        model: User,
+        as: "member",
+        attributes: ["user_id", "email"],
+        required: true,
+        include: [
+          {
+            model: Profile,
+            as: "profile",
+            attributes: ["full_name"],
+            required: false,
+          },
+        ],
+      },
+    ],
+    order: [["ticket_id", "DESC"]],
+    limit: safeLimit,
+    offset,
+    distinct: true,
+  });
+
+  // Lấy thông tin user từ row đầu tiên (nếu có)
+  const memberInfo = rows.length > 0
+    ? {
+        member_id: rows[0].member?.user_id ?? id,
+        email: rows[0].member?.email ?? null,
+        full_name: rows[0].member?.profile?.full_name ?? null,
+      }
+    : null;
+
+  return {
+    user: memberInfo,
+    data: rows.map((row) => {
+      const ticket = toTicketListDto(row);
+      return ticket;
+    }),
     pagination: {
       page: safePage,
       limit: safeLimit,
@@ -281,6 +395,8 @@ export async function getBorrowTicketByIdService({ ticketId, requesterUserId, re
       "pickup_expires_at",
       "picked_up_at",
       "due_date",
+      "returned_at",
+      "cancelled_at",
       "renew_count",
     ],
     include: [

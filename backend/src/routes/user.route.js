@@ -14,7 +14,7 @@ router.get("/member", ...requireAuthActive, requireRole("STAFF"), getAllMembers)
 // xem tất cả staff
 router.get("/staff", ...requireAuthActive, requireRole("ADMIN"), getAllStaffs);
 // chỉnh sửa trạng thái người dùng (active/inactive)
-router.patch("/:userId", ...requireAuthActive, requireRole("ADMIN"), updateUserStatus);
+router.patch("/:userId", ...requireAuthActive, requireRole("STAFF"), updateUserStatus);
 // xóa người dùng
 router.delete("/:userId", ...requireAuthActive, requireRole("ADMIN"), deleteUser);
 

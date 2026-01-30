@@ -52,9 +52,12 @@ export async function createBorrowTicketService({ memberId, book_id, bookId, hol
     throw appError("Payload không hợp lệ: cần book_id (mượn trực tiếp) hoặc hold_ids (mượn từ hold)", 400);
   }
 
-  // Tối ưu: chỉ check 5 phiếu gần nhất
+  // Tối ưu: chỉ check 5 phiếu gần nhất (không check phiếu return và cancelled)
   const recent = await BorrowTicket.findAll({
-    where: { member_id },
+    where: {
+      member_id,
+      status: { [Op.notIn]: NON_ACTIVE_STATUSES },
+    },
     attributes: ["status"],
     order: [["requested_at", "DESC"]],
     limit: CHECK_RECENT_TICKETS,
