@@ -11,6 +11,7 @@ import { appError } from "../../utils/appError.js";
 import { createAuthorService } from "../master-data/author.service.js";
 import { createPublisherService } from "../master-data/publisher.service.js";
 import { addBookCopiesWithNextNoteService, recalcCopyCounters } from "./bookCopy.service.js";
+import { syncBookToAI } from "./bookAI.post.service.js";
 
 // hàm hỗ trợ parse danh sách id từ mảng hoặc chuỗi
 function parseIdList(value) {
@@ -184,11 +185,92 @@ export async function getBookByIdentifierService(identifier) {
   return book;
 }
 
+// Giới hạn số lượng identifier tối đa
+const MAX_IDENTIFIERS = 20;
+
+/**
+ * Parse chuỗi identifiers thành mảng (hỗ trợ phân tách bằng dấu phẩy)
+ * @param {string|string[]} value - Chuỗi hoặc mảng identifiers
+ * @returns {string[]} - Mảng identifier đã được trim và lọc trùng
+ */
+function parseIdentifierList(value) {
+  if (!value) return [];
+  
+  // Nếu là mảng thì dùng trực tiếp
+  let items = Array.isArray(value) ? value : String(value).split(",");
+  
+  // Trim, lọc rỗng và lọc trùng
+  const seen = new Set();
+  const result = [];
+  for (const item of items) {
+    const trimmed = String(item).trim();
+    if (trimmed && !seen.has(trimmed)) {
+      seen.add(trimmed);
+      result.push(trimmed);
+    }
+  }
+  
+  return result;
+}
+
+/**
+ * Lấy nhiều sách theo danh sách identifier
+ * - Hỗ trợ tối đa 20 identifier
+ * - Trả về danh sách sách theo thứ tự identifier đầu vào
+ * @param {string|string[]} identifiers - Chuỗi phân tách dấu phẩy hoặc mảng
+ * @returns {Promise<Array>} - Mảng sách tìm được (có thể ít hơn số identifier nếu không tìm thấy)
+ */
+export async function getBooksByIdentifiersService(identifiers) {
+  const idList = parseIdentifierList(identifiers);
+  
+  if (!idList.length) return [];
+  
+  // Giới hạn số lượng để tránh query quá nặng
+  const limitedList = idList.slice(0, MAX_IDENTIFIERS);
+  
+  // Query 1 lần với WHERE IN
+  const books = await Book.findAll({
+    attributes: [
+      "book_id",
+      "identifier",
+      "title",
+      "description",
+      "publish_year",
+      "language",
+      "cover_url",
+      "total_copies",
+      "available_copies",
+      "total_borrow_count",
+    ],
+    where: {
+      identifier: { [Op.in]: limitedList },
+      status: "ACTIVE",
+    },
+    include: includeBookDetail(),
+  });
+  
+  if (!books.length) return [];
+  
+  // Tạo map để sắp xếp theo thứ tự identifier đầu vào
+  const bookMap = new Map(books.map((b) => [b.identifier, b]));
+  
+  // Trả về theo thứ tự identifier đầu vào (bỏ qua những cái không tìm thấy)
+  const result = [];
+  for (const id of limitedList) {
+    const book = bookMap.get(id);
+    if (book) result.push(book);
+  }
+  
+  return result;
+}
+
 // Tạo sách mới
 export async function createBookService({
   authUserId,
   coverFile,
+  cover_url,
   title,
+  identifier: inputIdentifier,
   description,
   publish_year,
   language,
@@ -206,10 +288,21 @@ export async function createBookService({
 
   const categoryIds = parseIdList(category_ids) || [];
 
+  // Validate identifier uniqueness
+  if (inputIdentifier) {
+    const existingBook = await Book.findOne({ where: { identifier: String(inputIdentifier).trim() } });
+    if (existingBook) {
+      throw appError("Mã identifier đã tồn tại, vui lòng chọn mã khác", 400);
+    }
+  }
+
   // upload cover trước, nếu fail DB thì rollback xóa file
+  // Nếu có cover_url truyền trực tiếp thì dùng luôn (dùng cho import nhanh)
   let coverPath = null;
   if (coverFile) {
     coverPath = await saveUploadedImage({ file: coverFile, type: "book" });
+  } else if (cover_url) {
+    coverPath = String(cover_url).trim();
   }
 
   // FE có thể gửi nhiều key khác nhau cho số lượng copy
@@ -219,8 +312,8 @@ export async function createBookService({
 
   const t = await sequelize.transaction();
   try {
-    // Tự động sinh mã identifier (chuỗi số, unique)
-    const identifier = await generateUniqueIdentifier(t);
+    // Sử dụng identifier được truyền vào hoặc tự động sinh mã (chuỗi số, unique)
+    const identifier = inputIdentifier ? String(inputIdentifier).trim() : await generateUniqueIdentifier(t);
 
     // xử lý danh sách tác giả: id | name (tự tạo nếu chưa có)
     const authorIds = await resolveAuthorIds(author_ids, t);
@@ -273,6 +366,16 @@ export async function createBookService({
 
     await recalcCopyCounters(book.book_id, t);
     await t.commit();
+
+    // Đồng bộ sách mới với AI server (chạy async, không block response)
+    syncBookToAI({
+      title: String(title).trim(),
+      identifier,
+      author_ids: authorIds,
+      category_ids: categoryIds,
+      publish_year: publish_year ?? null,
+      description: description ?? null,
+    }).catch(() => {});
 
     // Trả về dữ liệu book theo format GET /book/:id (không trả về copies)
     return getBookByIdService(book.book_id);

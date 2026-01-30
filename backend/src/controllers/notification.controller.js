@@ -4,6 +4,7 @@ import {
   markAsReadService,
   markAllAsReadService,
 } from "../services/notification/notification.service.js";
+import { clearOldNotificationsService } from "../services/notification/clearNotification.service.js";
 
 // GET /notification?limit=20
 export async function getNotifications(req, res, next) {
@@ -18,9 +19,15 @@ export async function getNotifications(req, res, next) {
 }
 
 // GET /notification/unread-count
+// Đồng thời dọn dẹp thông báo cũ (không block response)
 export async function getUnreadCount(req, res, next) {
   try {
-    const count = await getUnreadCountService(req.auth.user_id);
+    const userId = req.auth.user_id;
+    const count = await getUnreadCountService(userId);
+
+    // Gọi hàm xóa thông báo cũ không đồng bộ (không await để không block response)
+    clearOldNotificationsService(userId).catch(() => {});
+
     return res.json({ data: { unread_count: count } });
   } catch (e) {
     next(e);
